@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Stroll — A Peaceful City Walk</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- UI Overlay -->
+    <div id="ui-overlay">
+        <div id="title">Stroll</div>
+        <div id="subtitle">a peaceful city walk</div>
+        <div id="controls-hint">
+            <span class="key">W A S D</span> or <span class="key">↑ ← ↓ →</span> to walk
+            <br><span class="key">Mouse</span> to look around
+            <br><span class="key">Click</span> to start
+        </div>
+        <div id="thought-bubble"></div>
+
+        <!-- Control panel -->
+        <div id="control-panel">
+            <button id="sound-toggle" title="Toggle ambient sound">🔇</button>
+            <button id="screenshot-btn" title="Take screenshot (P)">📷</button>
+            <div id="time-slider-container" title="Time of day">
+                <label id="time-label">☀️</label>
+                <input type="range" id="time-slider" min="0" max="100" value="65">
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading screen -->
+    <div id="loading-screen">
+        <div id="loading-content">
+            <div id="loading-title">Stroll</div>
+            <div id="loading-subtitle">a peaceful city walk</div>
+            <div id="loading-bar-container">
+                <div id="loading-bar"></div>
+            </div>
+            <div id="loading-text">Preparing your peaceful walk...</div>
+        </div>
+    </div>
+
+    <!-- Screenshot flash -->
+    <div id="screenshot-flash"></div>
+
+    <!-- Mobile controls -->
+    <div id="mobile-controls">
+        <div id="joystick-area">
+            <div id="joystick-base">
+                <div id="joystick-thumb"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
