@@ -46,6 +46,15 @@
         </div>
     </div>
 
+    <!-- Import map so bare "three" specifiers inside CDN addons resolve correctly -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+        }
+    }
+    </script>
+
     <!-- ES Module entry point (Three.js loaded via import map) -->
     <script type="module" src="js/main.js"></script>
 </body>
