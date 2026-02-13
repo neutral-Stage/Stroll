@@ -1,3 +1,8 @@
+/* ============================================================
+   Stroll — A Peaceful City Walk
+   Minimal, elegant UI styling
+   ============================================================ */
+
 * {
     margin: 0;
     padding: 0;
@@ -15,7 +20,8 @@ canvas {
     display: block;
 }
 
-/* UI Overlay */
+/* ── UI Overlay ─────────────────────────────────────────────── */
+
 #ui-overlay {
     position: fixed;
     top: 0;
@@ -71,6 +77,8 @@ canvas {
     border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+/* ── Thought Bubble ─────────────────────────────────────────── */
+
 #thought-bubble {
     position: absolute;
     bottom: 100px;
@@ -90,6 +98,8 @@ canvas {
     opacity: 1;
 }
 
+/* ── Sound Toggle ───────────────────────────────────────────── */
+
 #sound-toggle {
     position: absolute;
     top: 24px;
@@ -102,11 +112,34 @@ canvas {
     user-select: none;
 }
 
-#sound-toggle:hover {
+#sound-toggle:hover,
+#sound-toggle:focus {
+    opacity: 1;
+    outline: none;
+}
+
+/* ── Crosshair ──────────────────────────────────────────────── */
+
+#crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    margin: -2px 0 0 -2px;
+    background: rgba(255, 248, 230, 0.3);
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+body.playing #crosshair {
     opacity: 1;
 }
 
-/* Loading Screen */
+/* ── Loading Screen ─────────────────────────────────────────── */
+
 #loading-screen {
     position: fixed;
     top: 0;
@@ -126,12 +159,39 @@ canvas {
     pointer-events: none;
 }
 
+#loading-content {
+    text-align: center;
+}
+
+#loading-title {
+    font-size: 64px;
+    margin-bottom: 24px;
+}
+
 #loading-text {
     color: rgba(255, 248, 230, 0.7);
     font-size: 18px;
     font-style: italic;
     letter-spacing: 2px;
+    margin-bottom: 20px;
     animation: pulse 2s ease-in-out infinite;
+}
+
+#loading-bar {
+    width: 200px;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    margin: 0 auto;
+    overflow: hidden;
+}
+
+#loading-bar-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #fca311, #ffba49);
+    border-radius: 2px;
+    transition: width 0.3s ease;
 }
 
 @keyframes pulse {
@@ -139,7 +199,8 @@ canvas {
     50% { opacity: 1; }
 }
 
-/* Mobile Controls */
+/* ── Mobile Controls ────────────────────────────────────────── */
+
 #mobile-controls {
     display: none;
     position: fixed;
@@ -190,7 +251,8 @@ canvas {
     }
 }
 
-/* Crosshair */
+/* ── Playing State ──────────────────────────────────────────── */
+
 body.playing {
     cursor: none;
 }
