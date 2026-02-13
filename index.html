@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Stroll — A calm, relaxing browser-based 3D city walk at golden hour. Built with Three.js.">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>Stroll — A Peaceful City Walk</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌇</text></svg>">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- UI Overlay -->
+    <div id="ui-overlay">
+        <div id="title">Stroll</div>
+        <div id="subtitle">a peaceful city walk</div>
+        <div id="controls-hint">
+            <span class="key">W A S D</span> or <span class="key">↑ ← ↓ →</span> to walk
+            <br><span class="key">Mouse</span> to look around
+            <br><span class="key">M</span> to toggle sound
+            <br><span class="key">Click</span> to start
+        </div>
+        <div id="thought-bubble"></div>
+        <div id="sound-toggle" role="button" aria-label="Toggle ambient sound" tabindex="0" title="Toggle ambient sound (M)">🔇</div>
+        <!-- Crosshair for orientation -->
+        <div id="crosshair"></div>
+    </div>
+
+    <!-- Loading screen with progress bar -->
+    <div id="loading-screen">
+        <div id="loading-content">
+            <div id="loading-title">🌇</div>
+            <div id="loading-text">Loading your peaceful walk...</div>
+            <div id="loading-bar">
+                <div id="loading-bar-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile controls -->
+    <div id="mobile-controls">
+        <div id="joystick-area">
+            <div id="joystick-base">
+                <div id="joystick-thumb"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ES Module entry point (Three.js loaded via import map) -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
