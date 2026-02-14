@@ -24,6 +24,25 @@ export const player = { x: 0, z: 0, yaw: 0, pitch: 0 };
 /** Keyboard state */
 const keys = {};
 
+/** Whether player is currently moving */
+let playerMoving = false;
+
+/**
+ * Check if the player is currently moving.
+ * @returns {boolean}
+ */
+export function isPlayerMoving() {
+    return playerMoving;
+}
+
+/**
+ * Get keys state.
+ * @returns {Object}
+ */
+export function getKeys() {
+    return keys;
+}
+
 /** Pointer lock state */
 let isPointerLocked = false;
 
@@ -233,6 +252,7 @@ export function updatePlayer(delta, camera) {
         moveX /= len;
         moveZ /= len;
     }
+    playerMoving = len > 0.1;
 
     // Apply movement relative to camera direction
     const speed = WALK_SPEED * delta * 60;
@@ -276,8 +296,9 @@ export function updatePlayer(delta, camera) {
  * Debounced window resize handler.
  * @param {THREE.PerspectiveCamera} camera
  * @param {THREE.WebGLRenderer} renderer
+ * @param {Function} [onResize] - optional callback for post-processing resize
  */
-export function setupResize(camera, renderer) {
+export function setupResize(camera, renderer, onResize) {
     let resizeTimeout;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
@@ -285,6 +306,7 @@ export function setupResize(camera, renderer) {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            if (onResize) onResize(window.innerWidth, window.innerHeight);
         }, 100);
     });
 }

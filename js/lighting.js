@@ -26,6 +26,25 @@ let skyTexture;
 /** Cycle progress 0..1 (0 = golden hour, 0.5 = night, 1 = golden hour) */
 let cycleTime = 0;
 
+/** Current night amount 0..1 */
+let nightAmount = 0;
+
+/**
+ * Get current night amount (0 = day, 1 = night).
+ * @returns {number}
+ */
+export function getNightAmount() {
+    return nightAmount;
+}
+
+/**
+ * Get current cycle time (0..1).
+ * @returns {number}
+ */
+export function getCycleTime() {
+    return cycleTime;
+}
+
 /**
  * Set up all scene lighting for golden-hour atmosphere.
  * @param {THREE.Scene} scene
@@ -154,7 +173,7 @@ export function updateDayNight(delta, scene) {
 
     cycleTime = (cycleTime + delta / DAY_NIGHT_CYCLE_DURATION) % 1;
     const phase = cycleTime;
-    const nightAmount = Math.sin(phase * Math.PI); // 0 at golden hour, 1 at midnight
+    nightAmount = Math.sin(phase * Math.PI); // 0 at golden hour, 1 at midnight
 
     // Adjust sun intensity and position
     if (sun) {
