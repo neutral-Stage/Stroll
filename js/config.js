@@ -106,5 +106,15 @@ export const THOUGHTS = [
     "The warmth of the sun on your face...",
     "Each step is a small meditation.",
     "Beauty hides in the ordinary.",
-    "The world is softer at this hour."
+    "The world is softer at this hour.",
+    "A butterfly dances in the breeze...",
+    "The fireflies are waking up.",
+    "Something glimmers in the distance...",
+    "The flowers seem to lean toward you.",
+    "Birds circle lazily overhead.",
+    "There's magic in the quiet places.",
+    "The night brings its own kind of beauty.",
+    "Every discovery is a small gift.",
+    "The city holds secrets for those who look.",
+    "Breathe. Just breathe."
 ];

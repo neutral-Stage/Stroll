@@ -25,6 +25,8 @@ let skyTexture;
 
 /** Cycle progress 0..1 (0 = golden hour, 0.5 = night, 1 = golden hour) */
 let cycleTime = 0;
+/** Current night amount 0..1 */
+let nightAmount = 0;
 
 /**
  * Set up all scene lighting for golden-hour atmosphere.
@@ -154,7 +156,7 @@ export function updateDayNight(delta, scene) {
 
     cycleTime = (cycleTime + delta / DAY_NIGHT_CYCLE_DURATION) % 1;
     const phase = cycleTime;
-    const nightAmount = Math.sin(phase * Math.PI); // 0 at golden hour, 1 at midnight
+    nightAmount = Math.sin(phase * Math.PI); // 0 at golden hour, 1 at midnight
 
     // Adjust sun intensity and position
     if (sun) {
@@ -193,5 +195,8 @@ export function setupGround(scene) {
     ground.receiveShadow = true;
     scene.add(ground);
 }
+
+export function getCycleTime() { return cycleTime; }
+export function getNightAmount() { return nightAmount; }
 
 
