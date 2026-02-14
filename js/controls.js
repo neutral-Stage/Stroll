@@ -276,8 +276,9 @@ export function updatePlayer(delta, camera) {
  * Debounced window resize handler.
  * @param {THREE.PerspectiveCamera} camera
  * @param {THREE.WebGLRenderer} renderer
+ * @param {EffectComposer} [composer] - optional post-processing composer
  */
-export function setupResize(camera, renderer) {
+export function setupResize(camera, renderer, composer) {
     let resizeTimeout;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
@@ -285,6 +286,7 @@ export function setupResize(camera, renderer) {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            if (composer) composer.setSize(window.innerWidth, window.innerHeight);
         }, 100);
     });
 }
