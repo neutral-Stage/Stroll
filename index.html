@@ -3,13 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Stroll — A calm, relaxing browser-based 3D city walk at golden hour. Built with Three.js.">
+    <meta name="description" content="Stroll — A calm, relaxing browser-based 3D exploration game with collectibles, wildlife, and beautiful day/night cycles. Built with Three.js.">
     <meta name="theme-color" content="#1a1a2e">
     <title>Stroll — A Peaceful City Walk</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌇</text></svg>">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <!-- Cinematic Intro -->
+    <div id="cinematic-intro">
+        <div class="intro-content">
+            <div class="intro-line intro-line-1">In a world that never stops moving...</div>
+            <div class="intro-line intro-line-2">sometimes the bravest thing you can do</div>
+            <div class="intro-line intro-line-3">is simply... stroll.</div>
+            <div class="intro-line intro-line-4 intro-title-line">✦ Stroll ✦</div>
+            <div class="intro-line intro-line-5 intro-skip">click anywhere to skip</div>
+        </div>
+    </div>
+
+    <!-- Loading screen with progress bar -->
+    <div id="loading-screen">
+        <div id="loading-content">
+            <div id="loading-title">🌇</div>
+            <div id="loading-subtitle">Stroll</div>
+            <div id="loading-text">Preparing your peaceful walk...</div>
+            <div id="loading-bar">
+                <div id="loading-bar-fill"></div>
+            </div>
+            <div id="loading-tip"></div>
+        </div>
+        <div id="loading-particles"></div>
+    </div>
+
     <!-- UI Overlay -->
     <div id="ui-overlay">
         <div id="title">Stroll</div>
@@ -17,23 +42,120 @@
         <div id="controls-hint">
             <span class="key">W A S D</span> or <span class="key">↑ ← ↓ →</span> to walk
             <br><span class="key">Mouse</span> to look around
-            <br><span class="key">M</span> to toggle sound
+            <br><span class="key">M</span> sound · <span class="key">P</span> photo · <span class="key">Z</span> meditate · <span class="key">J</span> journal
             <br><span class="key">Click</span> to start
         </div>
         <div id="thought-bubble"></div>
         <div id="sound-toggle" role="button" aria-label="Toggle ambient sound" tabindex="0" title="Toggle ambient sound (M)">🔇</div>
-        <!-- Crosshair for orientation -->
         <div id="crosshair"></div>
     </div>
 
-    <!-- Loading screen with progress bar -->
-    <div id="loading-screen">
-        <div id="loading-content">
-            <div id="loading-title">🌇</div>
-            <div id="loading-text">Loading your peaceful walk...</div>
-            <div id="loading-bar">
-                <div id="loading-bar-fill"></div>
+    <!-- HUD -->
+    <div id="hud">
+        <div id="hud-left">
+            <div id="hud-score">
+                <span id="hud-score-label">✦</span>
+                <span id="hud-score-value">0</span>
             </div>
+            <div id="hud-discoveries">
+                <span id="hud-discoveries-label">◈</span>
+                <span id="hud-discoveries-value">0/47</span>
+            </div>
+            <div id="hud-distance">
+                <span id="hud-distance-label">↝</span>
+                <span id="hud-distance-value">0m</span>
+            </div>
+        </div>
+        <div id="hud-center">
+            <div id="compass">
+                <div id="compass-ring">
+                    <div id="compass-needle">▲</div>
+                </div>
+                <div id="compass-direction">N</div>
+            </div>
+        </div>
+        <div id="hud-right">
+            <div id="hud-time">
+                <span id="hud-time-icon">☀️</span>
+            </div>
+            <button id="journal-toggle" title="Discovery Journal (J)">📖</button>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Achievement Notification -->
+    <div id="achievement-notification">
+        <div class="achievement-banner">
+            <div class="achievement-icon">🏆</div>
+            <div class="achievement-text">
+                <div class="achievement-label">Achievement Unlocked!</div>
+                <div class="achievement-name">Name</div>
+                <div class="achievement-desc">Description</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Discovery Journal Panel -->
+    <div id="journal-panel">
+        <div class="journal-header">
+            <h2>Discovery Journal</h2>
+            <button id="journal-close">✕</button>
+        </div>
+        <div class="journal-tabs">
+            <button class="journal-tab active" data-tab="journal-discoveries">Discoveries</button>
+            <button class="journal-tab" data-tab="journal-achievements">Achievements</button>
+        </div>
+        <div id="journal-discoveries" class="journal-tab-content active">
+            <div class="journal-empty">No discoveries yet. Explore the world!</div>
+        </div>
+        <div id="journal-achievements" class="journal-tab-content">
+        </div>
+    </div>
+
+    <!-- Photo Mode Overlay -->
+    <div id="photo-overlay">
+        <div class="photo-frame"></div>
+        <div class="photo-controls">
+            <span>📸 Photo Mode</span>
+            <span>| <span class="key">F</span> Filter: <span id="photo-filter-name">None</span></span>
+            <span>| <span class="key">Space</span> Capture</span>
+            <span>| <span class="key">P</span> Exit</span>
+        </div>
+        <div id="photo-flash"></div>
+    </div>
+
+    <!-- Meditation Overlay -->
+    <div id="meditation-overlay">
+        <div class="meditation-content">
+            <div class="meditation-icon">🧘</div>
+            <div class="meditation-text">Breathe...</div>
+            <div id="meditation-timer">0:00</div>
+            <div class="meditation-hint">Press <span class="key">Z</span> or <span class="key">Esc</span> to return</div>
+        </div>
+    </div>
+
+    <!-- Pause Menu -->
+    <div id="pause-menu">
+        <div class="pause-content">
+            <h2>⏸ Paused</h2>
+            <div class="pause-setting">
+                <label>Volume</label>
+                <input type="range" id="pause-volume" min="0" max="1" step="0.1" value="0.7">
+            </div>
+            <div class="pause-setting">
+                <label>Quality</label>
+                <select id="pause-quality">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high" selected>High</option>
+                </select>
+            </div>
+            <div class="pause-stats">
+                <div>Press <span class="key">Esc</span> to resume</div>
+            </div>
+            <button id="pause-resume" class="pause-btn">Resume</button>
         </div>
     </div>
 
@@ -46,7 +168,7 @@
         </div>
     </div>
 
-    <!-- Import map so bare "three" specifiers inside CDN addons resolve correctly -->
+    <!-- Import map -->
     <script type="importmap">
     {
         "imports": {
@@ -56,7 +178,6 @@
     }
     </script>
 
-    <!-- ES Module entry point (Three.js loaded via import map) -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
