@@ -52,7 +52,7 @@ export const WINDOW_SKIP_CHANCE = 0.2;
 export const ROOFTOP_DETAIL_CHANCE = 0.3;
 
 // ── Lighting ─────────────────────────────────────────────────
-export const SHADOW_MAP_SIZE = 2048;
+export const SHADOW_MAP_SIZE = 2048; // Base size, doubled in lighting.js for enhanced quality
 export const SHADOW_FRUSTUM = 120;
 export const FOG_DENSITY = 0.008;
 export const FOG_COLOR = 0xFFE8CC;
@@ -66,7 +66,7 @@ export const LEAF_COUNT = 60;
 export const FIREFLY_COUNT = 40;
 
 // ── Day/Night Cycle ──────────────────────────────────────────
-export const DAY_NIGHT_CYCLE_DURATION = 120; // seconds for a full cycle
+export const DAY_NIGHT_CYCLE_DURATION = 900; // seconds for a full cycle (slowed ~7.5x for relaxing pace)
 export const DAY_NIGHT_ENABLED = true;
 
 // ── Thoughts ─────────────────────────────────────────────────

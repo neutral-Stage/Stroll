@@ -26,6 +26,8 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.m
 import { UnrealBloomPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
+import { ShaderPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/shaders/FXAAShader.js';
 
 import { THOUGHTS, THOUGHT_MIN_DELAY, THOUGHT_EXTRA_DELAY, THOUGHT_DISPLAY_TIME, PLAYER_HEIGHT } from './config.js';
 import { setupLighting, setupFog, setupSkybox, setupGround, updateDayNight, getCycleTime, getNightAmount } from './lighting.js';
@@ -42,6 +44,8 @@ import { toggleMeditation, updateMeditation, isMeditationActive } from './medita
 import { createInteractiveElements, updateInteractive, handleClick, getFlowersInteracted } from './interactive.js';
 import { startCinematic, updateCinematic, isCinematicPlaying, skipCinematic } from './cinematic.js';
 import { updateHUD, togglePause, toggleJournal, showToast, getIsPaused, isJournalOpen, setupPauseMenu } from './hud.js';
+import { createDog, updateDog } from './dog.js';
+import { initWeapon, updateWeapon, resizeWeapon } from './weapon.js';
 
 // ── Module-level state ───────────────────────────────────────
 /** @type {THREE.Scene} */
@@ -92,18 +96,24 @@ function init() {
     updateLoadingProgress(60, 'Scattering treasures...');
 
     createCollectibles(scene);
-    updateLoadingProgress(70, 'Adding wildlife...');
+    updateLoadingProgress(65, 'Adding wildlife...');
 
     createWildlife(scene);
-    updateLoadingProgress(75, 'Placing waypoints...');
+    updateLoadingProgress(70, 'Placing waypoints...');
 
     createChallenges(scene);
-    updateLoadingProgress(80, 'Growing flowers...');
+    updateLoadingProgress(75, 'Growing flowers...');
 
     createInteractiveElements(scene);
-    updateLoadingProgress(85, 'Adding atmosphere...');
+    updateLoadingProgress(80, 'Adding atmosphere...');
 
     createParticles(scene);
+    updateLoadingProgress(83, 'Summoning companion...');
+
+    createDog(scene);
+    updateLoadingProgress(86, 'Arming up...');
+
+    initWeapon(scene, camera, renderer);
     updateLoadingProgress(90, 'Setting up controls...');
 
     setupControls(renderer, camera);
@@ -178,11 +188,18 @@ function setupScene() {
 
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.3,   // strength (subtle)
-            0.4,   // radius
-            0.85   // threshold
+            0.4,   // strength (slightly more visible)
+            0.6,   // radius (wider glow)
+            0.8    // threshold (catch more highlights)
         );
         composer.addPass(bloomPass);
+
+        // FXAA anti-aliasing pass
+        const fxaaPass = new ShaderPass(FXAAShader);
+        const pixelRatio = renderer.getPixelRatio();
+        fxaaPass.material.uniforms['resolution'].value.x = 1 / (window.innerWidth * pixelRatio);
+        fxaaPass.material.uniforms['resolution'].value.y = 1 / (window.innerHeight * pixelRatio);
+        composer.addPass(fxaaPass);
     } catch (err) {
         showError('Failed to initialize WebGL renderer: ' + err.message);
     }
@@ -306,8 +323,9 @@ function setupExtraKeyBindings() {
         }
     });
 
-    // Click interaction for flowers
-    renderer.domElement.addEventListener('click', (e) => {
+    // Right-click interaction for flowers (left click is now shoot)
+    renderer.domElement.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
         if (isPhotoModeActive() || isMeditationActive() || getIsPaused()) return;
         if (isCinematicPlaying()) return;
 
@@ -404,6 +422,9 @@ function animate() {
     updateDayNight(delta, scene);
     updateParticles(delta, elapsed, player);
 
+    // Update companion dog
+    updateDog(delta, elapsed, player);
+
     // Get night amount for systems that need it
     const nightAmount = getNightAmount();
     const cycleTime = getCycleTime();
@@ -451,6 +472,9 @@ function animate() {
 
     // Render with post-processing
     composer ? composer.render() : renderer.render(scene, camera);
+
+    // Update and render weapon overlay on top of the scene
+    updateWeapon(delta, elapsed, player, renderer);
 }
 
 // ── Start ────────────────────────────────────────────────────

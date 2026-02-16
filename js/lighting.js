@@ -33,37 +33,44 @@ let nightAmount = 0;
  * @param {THREE.Scene} scene
  */
 export function setupLighting(scene) {
-    // Warm ambient light
-    ambient = new THREE.AmbientLight(0xFFE0B2, 0.4);
+    // Warm ambient light (slightly brighter for realism)
+    ambient = new THREE.AmbientLight(0xFFE0B2, 0.5);
     scene.add(ambient);
 
-    // Hemisphere light for sky/ground color blending
-    hemi = new THREE.HemisphereLight(0xFDB813, 0x8B6914, 0.3);
+    // Hemisphere light for sky/ground color blending (enhanced)
+    hemi = new THREE.HemisphereLight(0xFDB813, 0x8B6914, 0.4);
     scene.add(hemi);
 
-    // Main directional light (sun at golden hour — low angle)
-    sun = new THREE.DirectionalLight(0xFFA726, 1.2);
-    sun.position.set(-80, 30, -60);
+    // Main directional light (sun at golden hour — low angle, enhanced shadows)
+    sun = new THREE.DirectionalLight(0xFFA726, 1.4);
+    sun.position.set(-80, 40, -60);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = SHADOW_MAP_SIZE;
-    sun.shadow.mapSize.height = SHADOW_MAP_SIZE;
+    sun.shadow.mapSize.width = SHADOW_MAP_SIZE * 2; // Higher resolution shadows
+    sun.shadow.mapSize.height = SHADOW_MAP_SIZE * 2;
     sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 300;
+    sun.shadow.camera.far = 400;
     sun.shadow.camera.left = -SHADOW_FRUSTUM;
     sun.shadow.camera.right = SHADOW_FRUSTUM;
     sun.shadow.camera.top = SHADOW_FRUSTUM;
     sun.shadow.camera.bottom = -SHADOW_FRUSTUM;
-    sun.shadow.bias = -0.001;
+    sun.shadow.bias = -0.0005;
+    sun.shadow.normalBias = 0.02;
+    sun.shadow.radius = 2; // Soft shadow edges
     scene.add(sun);
 
-    // Secondary warm fill light
-    const fill = new THREE.DirectionalLight(0xFF8A65, 0.3);
-    fill.position.set(60, 20, 40);
+    // Secondary warm fill light (enhanced)
+    const fill = new THREE.DirectionalLight(0xFF8A65, 0.4);
+    fill.position.set(60, 25, 40);
     scene.add(fill);
 
+    // Back rim light for depth
+    const rim = new THREE.DirectionalLight(0xFFCC80, 0.2);
+    rim.position.set(0, 50, 80);
+    scene.add(rim);
+
     // Subtle warm point light near player start
-    const warmGlow = new THREE.PointLight(0xFFCC80, 0.5, 50);
-    warmGlow.position.set(0, 8, 0);
+    const warmGlow = new THREE.PointLight(0xFFCC80, 0.6, 60);
+    warmGlow.position.set(0, 10, 0);
     scene.add(warmGlow);
 }
 
@@ -72,7 +79,8 @@ export function setupLighting(scene) {
  * @param {THREE.Scene} scene
  */
 export function setupFog(scene) {
-    scene.fog = new THREE.FogExp2(FOG_COLOR, FOG_DENSITY);
+    // Atmospheric fog for depth and realism
+    scene.fog = new THREE.FogExp2(FOG_COLOR, FOG_DENSITY * 0.8); // Slightly less dense for better visibility
 }
 
 /**
@@ -112,13 +120,28 @@ function paintSkyGradient(phase) {
     // Interpolate between golden-hour and night palettes
     const t = Math.sin(phase * Math.PI); // 0 at golden hour, 1 at night
 
+    // More realistic sky gradient with sun glow
     const goldenStops = [
-        [0, '#1a1a3e'], [0.2, '#2d1b69'], [0.4, '#e85d04'],
-        [0.55, '#fb8b24'], [0.7, '#fca311'], [0.85, '#ffba49'], [1.0, '#ffe8cc']
+        [0, '#0f1638'],   // Deep blue zenith
+        [0.15, '#1a2555'], // Upper sky
+        [0.3, '#c44e10'],  // Warm orange band
+        [0.45, '#e87520'], // Sun glow
+        [0.55, '#fb9b34'], // Bright horizon
+        [0.65, '#fdb849'], // Golden
+        [0.75, '#ffd070'], // Light gold
+        [0.85, '#ffe4a0'], // Pale gold
+        [1.0, '#fff0d0']   // Horizon haze
     ];
     const nightStops = [
-        [0, '#0a0a1a'], [0.2, '#0d0d2b'], [0.4, '#141432'],
-        [0.55, '#1a1a3e'], [0.7, '#1e1e4a'], [0.85, '#252555'], [1.0, '#2a2a5e']
+        [0, '#050510'],   // Deep space
+        [0.15, '#080818'], // Dark blue
+        [0.3, '#0c0c25'],  // Navy
+        [0.45, '#101035'], // Deep indigo
+        [0.55, '#141440'], // Indigo
+        [0.65, '#181850'], // Purple-blue
+        [0.75, '#1c1c58'], // Twilight
+        [0.85, '#202060'], // Dusk blue
+        [1.0, '#252568']   // Horizon night
     ];
 
     for (let i = 0; i < goldenStops.length; i++) {
@@ -128,6 +151,22 @@ function paintSkyGradient(phase) {
 
     skyCtx.fillStyle = gradient;
     skyCtx.fillRect(0, 0, 2, 256);
+
+    // Add sun disc during golden hour
+    if (t < 0.5) {
+        const sunY = 180 + t * 60; // Sun position moves down as night approaches
+        const sunBrightness = 1 - t * 2;
+        skyCtx.fillStyle = `rgba(255, 200, 100, ${sunBrightness * 0.4})`;
+        skyCtx.beginPath();
+        skyCtx.arc(1, sunY, 15, 0, Math.PI * 2);
+        skyCtx.fill();
+
+        // Sun glow
+        skyCtx.fillStyle = `rgba(255, 180, 80, ${sunBrightness * 0.15})`;
+        skyCtx.beginPath();
+        skyCtx.arc(1, sunY, 30, 0, Math.PI * 2);
+        skyCtx.fill();
+    }
 }
 
 /**
@@ -187,8 +226,53 @@ export function updateDayNight(delta, scene) {
  * @param {THREE.Scene} scene
  */
 export function setupGround(scene) {
-    const groundGeo = new THREE.PlaneGeometry(CITY_SIZE * 2, CITY_SIZE * 2);
-    const groundMat = new THREE.MeshLambertMaterial({ color: 0x8B8B7A });
+    const groundGeo = new THREE.PlaneGeometry(CITY_SIZE * 2, CITY_SIZE * 2, 64, 64);
+    
+    // Create a canvas texture for more realistic ground
+    const groundCanvas = document.createElement('canvas');
+    groundCanvas.width = 512;
+    groundCanvas.height = 512;
+    const gCtx = groundCanvas.getContext('2d');
+    
+    // Base color - warm asphalt/stone
+    gCtx.fillStyle = '#7a7a6e';
+    gCtx.fillRect(0, 0, 512, 512);
+    
+    // Add noise texture for realism
+    for (let i = 0; i < 20000; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const brightness = 100 + Math.random() * 60;
+        const alpha = 0.1 + Math.random() * 0.15;
+        gCtx.fillStyle = `rgba(${brightness}, ${brightness}, ${brightness - 10}, ${alpha})`;
+        gCtx.fillRect(x, y, 1 + Math.random() * 2, 1 + Math.random() * 2);
+    }
+    
+    // Add subtle grid lines (sidewalk/road texture)
+    gCtx.strokeStyle = 'rgba(100, 100, 90, 0.15)';
+    gCtx.lineWidth = 1;
+    for (let i = 0; i < 512; i += 32) {
+        gCtx.beginPath();
+        gCtx.moveTo(i, 0);
+        gCtx.lineTo(i, 512);
+        gCtx.stroke();
+        gCtx.beginPath();
+        gCtx.moveTo(0, i);
+        gCtx.lineTo(512, i);
+        gCtx.stroke();
+    }
+    
+    const groundTexture = new THREE.CanvasTexture(groundCanvas);
+    groundTexture.wrapS = THREE.RepeatWrapping;
+    groundTexture.wrapT = THREE.RepeatWrapping;
+    groundTexture.repeat.set(40, 40);
+    
+    const groundMat = new THREE.MeshStandardMaterial({
+        map: groundTexture,
+        color: 0x8B8B7A,
+        roughness: 0.9,
+        metalness: 0.05
+    });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.01;
