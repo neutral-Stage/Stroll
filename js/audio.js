@@ -3,7 +3,7 @@
  *
  * Features:
  *  • Procedural wind via filtered noise with modulation
- *  • Gentle melodic tones that change with time of day
+ *  • Lofi hip-hop background music
  *  • Bird chirps during daytime
  *  • Cricket sounds at night
  *  • Pickup sound effects for collectibles
@@ -11,6 +11,8 @@
  *
  * @module audio
  */
+
+import { startLofi, stopLofi } from './lofi.js';
 
 /** @type {AudioContext|null} */
 let audioCtx = null;
@@ -93,7 +95,7 @@ function createSoundscape() {
 
     // ── Wind layer (filtered noise with slow modulation) ──
     windGain = ctx.createGain();
-    windGain.gain.setValueAtTime(0.04, now);
+    windGain.gain.setValueAtTime(0.03, now);
     windGain.connect(masterGain);
 
     const windBuffer = createNoiseBuffer(ctx, 3);
@@ -122,36 +124,34 @@ function createSoundscape() {
     wind.start(now);
     activeNodes.push(wind);
 
-    // ── Warm pad (day) ──
+    // ── Day/Night ambient pads (reduced volume to make room for lofi) ──
     dayLayerGain = ctx.createGain();
-    dayLayerGain.gain.setValueAtTime(0.025, now);
+    dayLayerGain.gain.setValueAtTime(0.012, now);
     dayLayerGain.connect(masterGain);
 
-    // Major chord: C4, E4, G4
+    // Soft warm pad (day)
     [261.63, 329.63, 392.00].forEach(freq => {
         const osc = ctx.createOscillator();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, now);
         const g = ctx.createGain();
-        g.gain.setValueAtTime(0.3, now);
+        g.gain.setValueAtTime(0.2, now);
         osc.connect(g);
         g.connect(dayLayerGain);
         osc.start(now);
         activeNodes.push(osc);
     });
 
-    // ── Night pad (darker, minor) ──
     nightLayerGain = ctx.createGain();
     nightLayerGain.gain.setValueAtTime(0, now);
     nightLayerGain.connect(masterGain);
 
-    // Minor chord: A3, C4, E4
     [220.00, 261.63, 329.63].forEach(freq => {
         const osc = ctx.createOscillator();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq * 0.5, now);
         const g = ctx.createGain();
-        g.gain.setValueAtTime(0.25, now);
+        g.gain.setValueAtTime(0.15, now);
         osc.connect(g);
         g.connect(nightLayerGain);
         osc.start(now);
@@ -164,22 +164,8 @@ function createSoundscape() {
     // ── Cricket sounds (night) ──
     startCrickets(ctx);
 
-    // ── Gentle melody notes ──
-    melodyGain = ctx.createGain();
-    melodyGain.gain.setValueAtTime(0.015, now);
-    melodyGain.connect(masterGain);
-    startMelody(ctx);
-
-    // ── Gentle low drone ──
-    const drone = ctx.createOscillator();
-    drone.type = 'sine';
-    drone.frequency.setValueAtTime(55, now);
-    const droneGain = ctx.createGain();
-    droneGain.gain.setValueAtTime(0.02, now);
-    drone.connect(droneGain);
-    droneGain.connect(masterGain);
-    drone.start(now);
-    activeNodes.push(drone);
+    // ── Lofi background music (replaces old melody + drone) ──
+    startLofi(ctx, masterGain);
 }
 
 function createNoiseBuffer(ctx, duration) {
