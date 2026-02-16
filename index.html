@@ -10,6 +10,13 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <!-- Cinematic Intro Overlay -->
+    <div id="cinematic-overlay">
+        <div id="cinematic-title">Stroll</div>
+        <div id="cinematic-subtitle">a peaceful city walk</div>
+        <div id="cinematic-skip">Press any key to skip</div>
+    </div>
+
     <!-- UI Overlay -->
     <div id="ui-overlay">
         <div id="title">Stroll</div>
@@ -17,13 +24,108 @@
         <div id="controls-hint">
             <span class="key">W A S D</span> or <span class="key">↑ ← ↓ →</span> to walk
             <br><span class="key">Mouse</span> to look around
-            <br><span class="key">M</span> to toggle sound
+            <br><span class="key">M</span> sound · <span class="key">P</span> photo · <span class="key">N</span> meditate
+            <br><span class="key">J</span> journal · <span class="key">Esc</span> pause
             <br><span class="key">Click</span> to start
         </div>
         <div id="thought-bubble"></div>
         <div id="sound-toggle" role="button" aria-label="Toggle ambient sound" tabindex="0" title="Toggle ambient sound (M)">🔇</div>
         <!-- Crosshair for orientation -->
         <div id="crosshair"></div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div id="hud-left">
+            <div class="hud-item" title="Score">
+                <span class="hud-icon">✨</span>
+                <span id="hud-score">0</span>
+            </div>
+            <div class="hud-item" title="Collectibles">
+                <span class="hud-icon">💎</span>
+                <span id="hud-collected">0/0</span>
+            </div>
+            <div class="hud-item" title="Waypoints">
+                <span class="hud-icon">📍</span>
+                <span id="hud-waypoints">0/0</span>
+            </div>
+        </div>
+        <div id="hud-center">
+            <div id="compass">
+                <div id="compass-ring">
+                    <div id="compass-needle"></div>
+                    <span id="compass-n">N</span>
+                </div>
+                <div id="compass-dir">N</div>
+            </div>
+        </div>
+        <div id="hud-right">
+            <div class="hud-item" title="Time of Day">
+                <span class="hud-icon">🌅</span>
+                <span id="hud-time">Golden Hour</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Photo Mode UI -->
+    <div id="photo-mode-ui" style="display:none;">
+        <div id="photo-mode-header">📸 Photo Mode</div>
+        <div id="photo-mode-controls">
+            <span>Mouse: Orbit</span> · <span>Scroll: Zoom</span>
+            <br><span class="key">F</span> Filter: <span id="filter-name">None</span>
+            <br><span class="key">Space</span> Take Photo
+            <br><span class="key">P</span> Exit
+        </div>
+        <div id="photo-vignette"></div>
+    </div>
+
+    <!-- Meditation UI -->
+    <div id="meditation-ui" style="display:none;">
+        <div id="meditation-header">🧘 Meditation</div>
+        <div id="meditation-hint">Press N to exit</div>
+    </div>
+
+    <!-- Breathing Guide -->
+    <div id="breathing-guide" style="display:none;">
+        <div id="breathing-circle"></div>
+        <div id="breathing-text">Breathe in...</div>
+    </div>
+
+    <!-- Pause Menu -->
+    <div id="pause-menu" style="display:none;">
+        <div id="pause-content">
+            <div id="pause-title">⏸ Paused</div>
+            <button id="pause-resume" class="pause-btn">Resume</button>
+            <div id="pause-stats"></div>
+            <div id="pause-controls-info">
+                <div><span class="key">W A S D</span> Walk</div>
+                <div><span class="key">P</span> Photo Mode</div>
+                <div><span class="key">N</span> Meditation</div>
+                <div><span class="key">J</span> Journal</div>
+                <div><span class="key">M</span> Toggle Sound</div>
+                <div><span class="key">Esc</span> Pause/Resume</div>
+                <div><span class="key">Click</span> Interact with flowers</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Discovery Journal -->
+    <div id="journal-overlay" style="display:none;">
+        <div id="journal-content">
+            <div id="journal-header">
+                <span>📖 Discovery Journal</span>
+                <button id="journal-close" class="journal-btn">✕</button>
+            </div>
+            <div id="journal-tabs">
+                <button class="journal-tab active" data-tab="discoveries">Discoveries</button>
+                <button class="journal-tab" data-tab="achievements">Achievements</button>
+            </div>
+            <div id="journal-discoveries" class="journal-section"></div>
+            <div id="journal-achievements" class="journal-section" style="display:none;"></div>
+        </div>
     </div>
 
     <!-- Loading screen with progress bar -->

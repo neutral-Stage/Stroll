@@ -1,10 +1,13 @@
 /**
- * audio.js — Ambient sound system using Web Audio API
+ * audio.js — Overhauled ambient sound system using Web Audio API
  *
- * Fixes from review:
- *  • Single AudioContext created once, reused via suspend()/resume().
- *  • Audio nodes are tracked and properly stopped on toggle-off.
- *  • No AudioContext leak from repeated creation/destruction.
+ * Features:
+ *  • Procedural wind via filtered noise with modulation
+ *  • Gentle melodic tones that change with time of day
+ *  • Bird chirps during daytime
+ *  • Cricket sounds at night
+ *  • Pickup sound effects for collectibles
+ *  • Layered soundscape that evolves
  *
  * @module audio
  */
@@ -12,22 +15,33 @@
 /** @type {AudioContext|null} */
 let audioCtx = null;
 
+/** @type {GainNode|null} */
+let masterGain = null;
+
 /** @type {Array<OscillatorNode|AudioBufferSourceNode>} */
 let activeNodes = [];
 
 /** @type {boolean} */
 let soundOn = false;
 
+/** Current time-of-day blend (0 = day, 1 = night) */
+let currentNightAmount = 0;
+
+// Gain nodes for day/night layers
+let dayLayerGain = null;
+let nightLayerGain = null;
+let windGain = null;
+let melodyGain = null;
+
+// Melody state
+let melodyInterval = null;
+
 /**
  * Set up the sound toggle button.
- * Called from init() after DOM is ready (not at parse time).
  */
 export function setupSoundToggle() {
     const toggle = document.getElementById('sound-toggle');
-    if (!toggle) {
-        console.warn('Sound toggle element not found');
-        return;
-    }
+    if (!toggle) return;
 
     toggle.addEventListener('click', () => {
         if (!soundOn) {
@@ -39,14 +53,17 @@ export function setupSoundToggle() {
 }
 
 /**
- * Enable ambient sound. Creates AudioContext on first call, resumes on subsequent calls.
+ * Enable ambient sound.
  * @param {HTMLElement} toggle
  */
 function enableSound(toggle) {
     try {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            createAmbientSound(audioCtx);
+            masterGain = audioCtx.createGain();
+            masterGain.gain.setValueAtTime(0.7, audioCtx.currentTime);
+            masterGain.connect(audioCtx.destination);
+            createSoundscape();
         } else {
             audioCtx.resume();
         }
@@ -58,90 +75,335 @@ function enableSound(toggle) {
 }
 
 /**
- * Disable ambient sound by suspending the AudioContext (not closing it).
+ * Disable ambient sound.
  * @param {HTMLElement} toggle
  */
 function disableSound(toggle) {
-    if (audioCtx) {
-        audioCtx.suspend();
-    }
+    if (audioCtx) audioCtx.suspend();
     toggle.textContent = '🔇';
     soundOn = false;
 }
 
 /**
- * Create the ambient soundscape: warm drone + harmonics + filtered noise.
- * @param {AudioContext} ctx
+ * Create the full layered soundscape.
  */
-function createAmbientSound(ctx) {
+function createSoundscape() {
+    const ctx = audioCtx;
     const now = ctx.currentTime;
 
-    // Base drone (110 Hz sine)
-    const osc1 = ctx.createOscillator();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(110, now);
-    const gain1 = ctx.createGain();
-    gain1.gain.setValueAtTime(0.03, now);
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-    osc1.start(now);
-    activeNodes.push(osc1);
+    // ── Wind layer (filtered noise with slow modulation) ──
+    windGain = ctx.createGain();
+    windGain.gain.setValueAtTime(0.04, now);
+    windGain.connect(masterGain);
 
-    // Harmonic (165 Hz — perfect fifth)
-    const osc2 = ctx.createOscillator();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(165, now);
-    const gain2 = ctx.createGain();
-    gain2.gain.setValueAtTime(0.015, now);
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.start(now);
-    activeNodes.push(osc2);
+    const windBuffer = createNoiseBuffer(ctx, 3);
+    const wind = ctx.createBufferSource();
+    wind.buffer = windBuffer;
+    wind.loop = true;
 
-    // High shimmer (330 Hz with LFO modulation)
-    const osc3 = ctx.createOscillator();
-    osc3.type = 'sine';
-    osc3.frequency.setValueAtTime(330, now);
-    const gain3 = ctx.createGain();
-    gain3.gain.setValueAtTime(0.008, now);
+    const windFilter = ctx.createBiquadFilter();
+    windFilter.type = 'bandpass';
+    windFilter.frequency.setValueAtTime(400, now);
+    windFilter.Q.setValueAtTime(0.8, now);
 
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.setValueAtTime(0.3, now);
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.setValueAtTime(0.005, now);
-    lfo.connect(lfoGain);
-    lfoGain.connect(gain3.gain);
-    lfo.start(now);
-    activeNodes.push(lfo);
+    // Modulate wind filter frequency
+    const windLFO = ctx.createOscillator();
+    windLFO.type = 'sine';
+    windLFO.frequency.setValueAtTime(0.1, now);
+    const windLFOGain = ctx.createGain();
+    windLFOGain.gain.setValueAtTime(200, now);
+    windLFO.connect(windLFOGain);
+    windLFOGain.connect(windFilter.frequency);
+    windLFO.start(now);
+    activeNodes.push(windLFO);
 
-    osc3.connect(gain3);
-    gain3.connect(ctx.destination);
-    osc3.start(now);
-    activeNodes.push(osc3);
+    wind.connect(windFilter);
+    windFilter.connect(windGain);
+    wind.start(now);
+    activeNodes.push(wind);
 
-    // Gentle filtered noise for "city ambience"
-    const bufferSize = ctx.sampleRate * 2;
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
+    // ── Warm pad (day) ──
+    dayLayerGain = ctx.createGain();
+    dayLayerGain.gain.setValueAtTime(0.025, now);
+    dayLayerGain.connect(masterGain);
+
+    // Major chord: C4, E4, G4
+    [261.63, 329.63, 392.00].forEach(freq => {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.3, now);
+        osc.connect(g);
+        g.connect(dayLayerGain);
+        osc.start(now);
+        activeNodes.push(osc);
+    });
+
+    // ── Night pad (darker, minor) ──
+    nightLayerGain = ctx.createGain();
+    nightLayerGain.gain.setValueAtTime(0, now);
+    nightLayerGain.connect(masterGain);
+
+    // Minor chord: A3, C4, E4
+    [220.00, 261.63, 329.63].forEach(freq => {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq * 0.5, now);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.25, now);
+        osc.connect(g);
+        g.connect(nightLayerGain);
+        osc.start(now);
+        activeNodes.push(osc);
+    });
+
+    // ── Bird chirps (day) ──
+    startBirdChirps(ctx);
+
+    // ── Cricket sounds (night) ──
+    startCrickets(ctx);
+
+    // ── Gentle melody notes ──
+    melodyGain = ctx.createGain();
+    melodyGain.gain.setValueAtTime(0.015, now);
+    melodyGain.connect(masterGain);
+    startMelody(ctx);
+
+    // ── Gentle low drone ──
+    const drone = ctx.createOscillator();
+    drone.type = 'sine';
+    drone.frequency.setValueAtTime(55, now);
+    const droneGain = ctx.createGain();
+    droneGain.gain.setValueAtTime(0.02, now);
+    drone.connect(droneGain);
+    droneGain.connect(masterGain);
+    drone.start(now);
+    activeNodes.push(drone);
+}
+
+function createNoiseBuffer(ctx, duration) {
+    const bufferSize = ctx.sampleRate * duration;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
         output[i] = (Math.random() * 2 - 1) * 0.5;
     }
-    const noise = ctx.createBufferSource();
-    noise.buffer = noiseBuffer;
-    noise.loop = true;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(200, now);
-    filter.Q.setValueAtTime(0.5, now);
-
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.015, now);
-
-    noise.connect(filter);
-    filter.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
-    noise.start(now);
-    activeNodes.push(noise);
+    return buffer;
 }
+
+function startBirdChirps(ctx) {
+    const chirp = () => {
+        if (!soundOn || !audioCtx) return;
+        const now = ctx.currentTime;
+        const dayAmount = 1 - currentNightAmount;
+        if (dayAmount < 0.3) return; // No birds at night
+
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        const baseFreq = 1800 + Math.random() * 1200;
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.3, now + 0.05);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.8, now + 0.1);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.1, now + 0.15);
+
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(0.02 * dayAmount, now + 0.02);
+        g.gain.linearRampToValueAtTime(0, now + 0.2);
+
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 0.25);
+
+        // Schedule next chirp
+        setTimeout(chirp, 3000 + Math.random() * 8000);
+    };
+    setTimeout(chirp, 2000);
+}
+
+function startCrickets(ctx) {
+    const cricket = () => {
+        if (!soundOn || !audioCtx) return;
+        const now = ctx.currentTime;
+        if (currentNightAmount < 0.3) {
+            setTimeout(cricket, 2000);
+            return;
+        }
+
+        // Cricket = rapid oscillation
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(4500 + Math.random() * 500, now);
+
+        const tremolo = ctx.createOscillator();
+        tremolo.type = 'square';
+        tremolo.frequency.setValueAtTime(40 + Math.random() * 20, now);
+        const tremoloGain = ctx.createGain();
+        tremoloGain.gain.setValueAtTime(0.008 * currentNightAmount, now);
+        tremolo.connect(tremoloGain);
+
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(0.008 * currentNightAmount, now + 0.05);
+        g.gain.linearRampToValueAtTime(0, now + 0.4);
+
+        tremoloGain.connect(g.gain);
+        osc.connect(g);
+        g.connect(masterGain);
+        tremolo.start(now);
+        osc.start(now);
+        osc.stop(now + 0.5);
+        tremolo.stop(now + 0.5);
+
+        setTimeout(cricket, 1000 + Math.random() * 3000);
+    };
+    setTimeout(cricket, 5000);
+}
+
+function startMelody(ctx) {
+    // Pentatonic scale notes (peaceful)
+    const notes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33];
+
+    const playNote = () => {
+        if (!soundOn || !audioCtx) return;
+        const now = ctx.currentTime;
+        const freq = notes[Math.floor(Math.random() * notes.length)];
+
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(0.6, now + 0.3);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 3);
+
+        osc.connect(g);
+        g.connect(melodyGain);
+        osc.start(now);
+        osc.stop(now + 3.5);
+
+        setTimeout(playNote, 4000 + Math.random() * 8000);
+    };
+    setTimeout(playNote, 6000);
+}
+
+/**
+ * Update audio layers based on time of day.
+ * @param {number} nightAmount - 0 (day) to 1 (night)
+ */
+export function updateAudioTimeOfDay(nightAmount) {
+    currentNightAmount = nightAmount;
+    if (!audioCtx || !soundOn) return;
+
+    const now = audioCtx.currentTime;
+    if (dayLayerGain) {
+        dayLayerGain.gain.linearRampToValueAtTime(0.025 * (1 - nightAmount), now + 0.5);
+    }
+    if (nightLayerGain) {
+        nightLayerGain.gain.linearRampToValueAtTime(0.02 * nightAmount, now + 0.5);
+    }
+    if (windGain) {
+        windGain.gain.linearRampToValueAtTime(0.03 + nightAmount * 0.02, now + 0.5);
+    }
+}
+
+/**
+ * Play a pickup sound effect.
+ * @param {string} type - 'orb', 'crystal', 'star'
+ */
+export function playPickupSound(type) {
+    if (!audioCtx || !soundOn) return;
+    const now = audioCtx.currentTime;
+
+    const freqMap = { orb: 880, crystal: 1100, star: 1320 };
+    const baseFreq = freqMap[type] || 880;
+
+    // Sparkle sound: rising arpeggio
+    for (let i = 0; i < 3; i++) {
+        const osc = audioCtx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(baseFreq * (1 + i * 0.25), now + i * 0.08);
+
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0, now + i * 0.08);
+        g.gain.linearRampToValueAtTime(0.08, now + i * 0.08 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.4);
+
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start(now + i * 0.08);
+        osc.stop(now + i * 0.08 + 0.5);
+    }
+
+    // Shimmer
+    const shimmer = audioCtx.createOscillator();
+    shimmer.type = 'sine';
+    shimmer.frequency.setValueAtTime(baseFreq * 2, now);
+    shimmer.frequency.exponentialRampToValueAtTime(baseFreq * 3, now + 0.3);
+
+    const sg = audioCtx.createGain();
+    sg.gain.setValueAtTime(0.04, now);
+    sg.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+    shimmer.connect(sg);
+    sg.connect(masterGain);
+    shimmer.start(now);
+    shimmer.stop(now + 0.6);
+}
+
+/**
+ * Play a discovery/waypoint sound.
+ */
+export function playDiscoverySound() {
+    if (!audioCtx || !soundOn) return;
+    const now = audioCtx.currentTime;
+
+    // Ascending major chord
+    const freqs = [523.25, 659.25, 783.99, 1046.50];
+    freqs.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.12);
+
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0, now + i * 0.12);
+        g.gain.linearRampToValueAtTime(0.06, now + i * 0.12 + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.8);
+
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start(now + i * 0.12);
+        osc.stop(now + i * 0.12 + 1);
+    });
+}
+
+/**
+ * Play achievement unlock sound.
+ */
+export function playAchievementSound() {
+    if (!audioCtx || !soundOn) return;
+    const now = audioCtx.currentTime;
+
+    // Triumphant fanfare
+    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+    notes.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + i * 0.1);
+
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0, now + i * 0.1);
+        g.gain.linearRampToValueAtTime(0.07, now + i * 0.1 + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 1.0);
+
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start(now + i * 0.1);
+        osc.stop(now + i * 0.1 + 1.2);
+    });
+}
+
+export function isSoundOn() { return soundOn; }
