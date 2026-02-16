@@ -146,7 +146,9 @@ export function updateDog(delta, elapsed, playerPos) {
     if (dist > 4) {
         // Move toward player but stop at ~2.5 units
         const targetDist = 2.5;
-        const angle = Math.atan2(dx, dz);
+        const angle = Math.atan2(dz, dx);
+        dogTargetPos.x = playerPos.x - Math.cos(angle) * targetDist;
+        dogTargetPos.z = playerPos.z - Math.sin(angle) * targetDist;
         dogTargetPos.x = playerPos.x - Math.sin(angle) * targetDist;
         dogTargetPos.z = playerPos.z - Math.cos(angle) * targetDist;
         dogIsMoving = true;
