@@ -393,3 +393,6 @@ export function playAchievementSound() {
 }
 
 export function isSoundOn() { return soundOn; }
+
+export function getAudioContext() { return audioCtx; }
+export function getMasterGain() { return masterGain; }

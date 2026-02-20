@@ -12,6 +12,7 @@
  */
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { getAudioContext, getMasterGain, isSoundOn } from './audio.js';
 
 /** @type {THREE.Group} */
 let dogGroup = null;
@@ -25,10 +26,6 @@ let dogBobTime = 0;
 let barkTimer = 0;
 let nextBarkTime = 10 + Math.random() * 20;
 let tailWagTime = 0;
-
-/** Audio context reference */
-let audioCtx = null;
-let masterGain = null;
 
 /** Leg references for animation */
 let legFL = null, legFR = null, legBL = null, legBR = null;
@@ -149,12 +146,14 @@ export function updateDog(delta, elapsed, playerPos) {
         const angle = Math.atan2(dz, dx);
         dogTargetPos.x = playerPos.x - Math.cos(angle) * targetDist;
         dogTargetPos.z = playerPos.z - Math.sin(angle) * targetDist;
-        dogTargetPos.x = playerPos.x - Math.sin(angle) * targetDist;
-        dogTargetPos.z = playerPos.z - Math.cos(angle) * targetDist;
         dogIsMoving = true;
     } else if (dist < 2) {
         // Too close, back off slightly
-        dogIsMoving = false;
+        const targetDist = 2.5;
+        const angle = Math.atan2(dz, dx);
+        dogTargetPos.x = playerPos.x - Math.cos(angle) * targetDist;
+        dogTargetPos.z = playerPos.z - Math.sin(angle) * targetDist;
+        dogIsMoving = true;
     } else {
         dogIsMoving = false;
     }
@@ -171,7 +170,7 @@ export function updateDog(delta, elapsed, playerPos) {
         dogIsMoving = true;
 
         // Face movement direction
-        const targetYaw = Math.atan2(tdx, tdz);
+        const targetYaw = Math.atan2(tdx, tdz) + Math.PI;
         // Smooth rotation
         let yawDiff = targetYaw - dogYaw;
         while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
@@ -230,12 +229,10 @@ export function updateDog(delta, elapsed, playerPos) {
  */
 function playBark() {
     try {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            masterGain = audioCtx.createGain();
-            masterGain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-            masterGain.connect(audioCtx.destination);
-        }
+        if (!isSoundOn()) return;
+        const audioCtx = getAudioContext();
+        const masterGain = getMasterGain();
+        if (!audioCtx || !masterGain) return;
 
         if (audioCtx.state === 'suspended') return;
 
@@ -259,9 +256,9 @@ function playBark() {
         filter.frequency.setValueAtTime(800, now);
         filter.Q.setValueAtTime(2, now);
 
-        osc.connect(filter);
-        filter.connect(g);
-        g.connect(masterGain);
+        osc.connect(g);
+        g.connect(filter);
+        filter.connect(masterGain);
         osc.start(now);
         osc.stop(now + 0.25);
 
@@ -277,9 +274,8 @@ function playBark() {
             g2.gain.linearRampToValueAtTime(0.25, now + 0.27);
             g2.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
 
-            osc2.connect(filter);
-            g2.connect(masterGain);
             osc2.connect(g2);
+            g2.connect(filter);
             osc2.start(now + 0.25);
             osc2.stop(now + 0.5);
         }
