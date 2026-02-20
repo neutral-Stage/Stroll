@@ -149,7 +149,11 @@ export function updateDog(delta, elapsed, playerPos) {
         dogIsMoving = true;
     } else if (dist < 2) {
         // Too close, back off slightly
-        dogIsMoving = false;
+        const targetDist = 2.5;
+        const angle = Math.atan2(dz, dx);
+        dogTargetPos.x = playerPos.x - Math.cos(angle) * targetDist;
+        dogTargetPos.z = playerPos.z - Math.sin(angle) * targetDist;
+        dogIsMoving = true;
     } else {
         dogIsMoving = false;
     }
@@ -252,9 +256,9 @@ function playBark() {
         filter.frequency.setValueAtTime(800, now);
         filter.Q.setValueAtTime(2, now);
 
-        osc.connect(filter);
-        filter.connect(g);
-        g.connect(masterGain);
+        osc.connect(g);
+        g.connect(filter);
+        filter.connect(masterGain);
         osc.start(now);
         osc.stop(now + 0.25);
 
@@ -270,9 +274,8 @@ function playBark() {
             g2.gain.linearRampToValueAtTime(0.25, now + 0.27);
             g2.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
 
-            osc2.connect(filter);
-            g2.connect(masterGain);
             osc2.connect(g2);
+            g2.connect(filter);
             osc2.start(now + 0.25);
             osc2.stop(now + 0.5);
         }
