@@ -46,6 +46,7 @@ import { startCinematic, updateCinematic, isCinematicPlaying, skipCinematic } fr
 import { updateHUD, togglePause, toggleJournal, showToast, getIsPaused, isJournalOpen, setupPauseMenu } from './hud.js';
 import { createDog, updateDog } from './dog.js';
 import { initWeapon, updateWeapon, resizeWeapon } from './weapon.js';
+import { createTraffic, updateTraffic } from './traffic.js';
 
 // ── Module-level state ───────────────────────────────────────
 /** @type {THREE.Scene} */
@@ -111,7 +112,10 @@ function init() {
     updateLoadingProgress(83, 'Summoning companion...');
 
     createDog(scene);
-    updateLoadingProgress(86, 'Arming up...');
+    updateLoadingProgress(86, 'Adding traffic...');
+
+    createTraffic(scene);
+    updateLoadingProgress(88, 'Arming up...');
 
     initWeapon(scene, camera, renderer);
     updateLoadingProgress(90, 'Setting up controls...');
@@ -424,6 +428,9 @@ function animate() {
 
     // Update companion dog
     updateDog(delta, elapsed, player);
+
+    // Update traffic
+    updateTraffic(delta, player);
 
     // Get night amount for systems that need it
     const nightAmount = getNightAmount();
