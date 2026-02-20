@@ -19,6 +19,7 @@ let isPlaying = false;
 let beatInterval = null;
 let chordInterval = null;
 let bassInterval = null;
+let bassTimeout = null;
 
 // BPM and timing
 const BPM = 60;
@@ -72,9 +73,11 @@ export function stopLofi() {
     if (beatInterval) clearInterval(beatInterval);
     if (chordInterval) clearInterval(chordInterval);
     if (bassInterval) clearInterval(bassInterval);
+    if (bassTimeout) clearTimeout(bassTimeout);
     beatInterval = null;
     chordInterval = null;
     bassInterval = null;
+    bassTimeout = null;
 }
 
 /**
@@ -336,6 +339,9 @@ function startBassLoop() {
         bassIndex++;
     };
 
-    bassInterval = setInterval(playBass, BEAT_TIME * 2000); // Every 2 beats
-    setTimeout(playBass, BEAT_TIME * 500); // Offset from chords
+    bassTimeout = setTimeout(() => {
+        if (!isPlaying) return;
+        bassInterval = setInterval(playBass, BEAT_TIME * 2000); // Every 2 beats
+        playBass();
+    }, BEAT_TIME * 500); // Offset from chords
 }
