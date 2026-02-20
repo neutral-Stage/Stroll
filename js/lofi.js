@@ -19,9 +19,10 @@ let isPlaying = false;
 let beatInterval = null;
 let chordInterval = null;
 let bassInterval = null;
+let bassTimeout = null;
 
 // BPM and timing
-const BPM = 72;
+const BPM = 60;
 const BEAT_TIME = 60 / BPM;
 
 // Chord progressions (lofi jazz chords - 7ths and 9ths)
@@ -72,9 +73,11 @@ export function stopLofi() {
     if (beatInterval) clearInterval(beatInterval);
     if (chordInterval) clearInterval(chordInterval);
     if (bassInterval) clearInterval(bassInterval);
+    if (bassTimeout) clearTimeout(bassTimeout);
     beatInterval = null;
     chordInterval = null;
     bassInterval = null;
+    bassTimeout = null;
 }
 
 /**
@@ -101,7 +104,7 @@ function startVinylCrackle() {
     filter.frequency.setValueAtTime(3000, ctx.currentTime);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime); // Softer crackle
 
     source.connect(filter);
     filter.connect(gain);
@@ -147,17 +150,17 @@ function startBeatLoop() {
 function playKick(time) {
     const osc = ctx.createOscillator();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(150, time);
-    osc.frequency.exponentialRampToValueAtTime(40, time + 0.12);
+    osc.frequency.setValueAtTime(120, time);
+    osc.frequency.exponentialRampToValueAtTime(30, time + 0.15);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.4, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+    gain.gain.setValueAtTime(0.3, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
 
     osc.connect(gain);
     gain.connect(lofiMaster);
     osc.start(time);
-    osc.stop(time + 0.35);
+    osc.stop(time + 0.45);
 }
 
 /**
@@ -180,8 +183,8 @@ function playHiHat(time, open) {
     filter.frequency.setValueAtTime(8000, time);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(open ? 0.12 : 0.08, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + (open ? 0.15 : 0.05));
+    gain.gain.setValueAtTime(open ? 0.08 : 0.05, time); // Softer hi-hat
+    gain.gain.exponentialRampToValueAtTime(0.001, time + (open ? 0.2 : 0.08)); // Longer decay
 
     source.connect(filter);
     filter.connect(gain);
@@ -211,12 +214,12 @@ function playRimshot(time) {
     filter.Q.setValueAtTime(2, time);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.1, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+    gain.gain.setValueAtTime(0.06, time); // Softer rimshot
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1); // Longer decay
 
     const oscGain = ctx.createGain();
-    oscGain.gain.setValueAtTime(0.05, time);
-    oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+    oscGain.gain.setValueAtTime(0.03, time); // Softer osc
+    oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
 
     osc.connect(oscGain);
     oscGain.connect(lofiMaster);
@@ -256,11 +259,11 @@ function startChordLoop() {
             osc2.detune.setValueAtTime(5 + Math.random() * 10, now);
 
             const gain = ctx.createGain();
-            const volume = 0.06 - i * 0.01; // Higher notes slightly quieter
+            const volume = 0.05 - i * 0.01; // Higher notes slightly quieter, overall softer
             gain.gain.setValueAtTime(0, now);
-            gain.gain.linearRampToValueAtTime(Math.max(volume, 0.02), now + 0.1);
-            gain.gain.setValueAtTime(Math.max(volume, 0.02), now + BEAT_TIME * 1.5);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + BEAT_TIME * 2);
+            gain.gain.linearRampToValueAtTime(Math.max(volume, 0.015), now + 0.5); // Slower attack
+            gain.gain.setValueAtTime(Math.max(volume, 0.015), now + BEAT_TIME * 2.0);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + BEAT_TIME * 3.5); // Slower release
 
             // Low-pass filter for warmth
             const filter = ctx.createBiquadFilter();
@@ -274,9 +277,9 @@ function startChordLoop() {
             gain.connect(lofiMaster);
 
             osc.start(now);
-            osc.stop(now + BEAT_TIME * 2.5);
+            osc.stop(now + BEAT_TIME * 4.0);
             osc2.start(now);
-            osc2.stop(now + BEAT_TIME * 2.5);
+            osc2.stop(now + BEAT_TIME * 4.0);
         });
 
         currentChordIndex = (currentChordIndex + 1) % progression.length;
@@ -315,9 +318,9 @@ function startBassLoop() {
 
         const gain = ctx.createGain();
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
-        gain.gain.setValueAtTime(0.12, now + BEAT_TIME * 0.8);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + BEAT_TIME * 1.8);
+        gain.gain.linearRampToValueAtTime(0.12, now + 0.2); // Slower attack
+        gain.gain.setValueAtTime(0.10, now + BEAT_TIME * 1.2);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + BEAT_TIME * 2.5); // Slower release
 
         const filter = ctx.createBiquadFilter();
         filter.type = 'lowpass';
@@ -329,13 +332,16 @@ function startBassLoop() {
         gain.connect(lofiMaster);
 
         osc.start(now);
-        osc.stop(now + BEAT_TIME * 2);
+        osc.stop(now + BEAT_TIME * 3);
         sub.start(now);
-        sub.stop(now + BEAT_TIME * 2);
+        sub.stop(now + BEAT_TIME * 3);
 
         bassIndex++;
     };
 
-    bassInterval = setInterval(playBass, BEAT_TIME * 2000); // Every 2 beats
-    setTimeout(playBass, BEAT_TIME * 500); // Offset from chords
+    bassTimeout = setTimeout(() => {
+        if (!isPlaying) return;
+        bassInterval = setInterval(playBass, BEAT_TIME * 2000); // Every 2 beats
+        playBass();
+    }, BEAT_TIME * 500); // Offset from chords
 }

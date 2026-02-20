@@ -14,7 +14,7 @@ export const PARK_EXCLUSION = 25; // radius around center reserved for park
 export const BLOCK_SKIP_CHANCE = 0.15; // probability of skipping a block
 
 // ── Player ───────────────────────────────────────────────────
-export const WALK_SPEED = 0.08;
+export const WALK_SPEED = 0.04;
 export const LOOK_SPEED = 0.002;
 export const TOUCH_LOOK_SPEED = 0.005;
 export const PLAYER_HEIGHT = 3.5;
@@ -66,7 +66,7 @@ export const LEAF_COUNT = 60;
 export const FIREFLY_COUNT = 40;
 
 // ── Day/Night Cycle ──────────────────────────────────────────
-export const DAY_NIGHT_CYCLE_DURATION = 900; // seconds for a full cycle (slowed ~7.5x for relaxing pace)
+export const DAY_NIGHT_CYCLE_DURATION = 1800; // seconds for a full cycle (slowed ~15x for relaxing pace)
 export const DAY_NIGHT_ENABLED = true;
 
 // ── Thoughts ─────────────────────────────────────────────────
