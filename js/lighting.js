@@ -18,6 +18,10 @@ let ambient;
 let hemi;
 /** @type {THREE.Mesh} */
 let skyMesh;
+/** @type {THREE.Points} */
+let starField;
+/** @type {THREE.Mesh} */
+let moon;
 /** @type {CanvasRenderingContext2D} */
 let skyCtx;
 /** @type {THREE.CanvasTexture} */
@@ -107,6 +111,12 @@ export function setupSkybox(scene) {
     });
     skyMesh = new THREE.Mesh(skyGeo, skyMat);
     scene.add(skyMesh);
+
+    // Create star field
+    createStarField(scene);
+
+    // Create moon
+    createMoon(scene);
 }
 
 /**
@@ -209,9 +219,31 @@ export function updateDayNight(delta, scene) {
         ambient.intensity = 0.4 * (1 - nightAmount * 0.6);
     }
 
+    // Adjust hemisphere light
+    if (hemi) {
+        hemi.intensity = 0.4 * (1 - nightAmount * 0.5);
+    }
+
     // Adjust fog density
     if (scene.fog) {
         scene.fog.density = FOG_DENSITY * (1 + nightAmount * 0.5);
+    }
+
+    // Control star visibility
+    if (starField) {
+        starField.material.opacity = Math.max(0, nightAmount - 0.3) * 1.3;
+        starField.rotation.y += delta * 0.01; // Slow rotation
+    }
+
+    // Control moon visibility
+    if (moon) {
+        moon.material.opacity = Math.max(0, nightAmount - 0.2) * 0.9;
+        const moonAngle = phase * Math.PI * 2 + Math.PI;
+        moon.position.set(
+            -100 * Math.cos(moonAngle),
+            60 + 60 * nightAmount,
+            -150 * Math.sin(moonAngle)
+        );
     }
 
     // Repaint sky gradient
@@ -278,6 +310,70 @@ export function setupGround(scene) {
     ground.position.y = -0.01;
     ground.receiveShadow = true;
     scene.add(ground);
+}
+
+/**
+ * Create a star field for nighttime.
+ * @param {THREE.Scene} scene
+ */
+function createStarField(scene) {
+    const starCount = 1500;
+    const starGeometry = new THREE.BufferGeometry();
+    const positions = [];
+    const sizes = [];
+    const colors = [];
+
+    for (let i = 0; i < starCount; i++) {
+        // Random position on sphere
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(Math.random() * 2 - 1);
+        const r = SKY_RADIUS * 0.95;
+
+        positions.push(
+            r * Math.sin(phi) * Math.cos(theta),
+            r * Math.sin(phi) * Math.sin(theta),
+            r * Math.cos(phi)
+        );
+
+        // Random star size
+        sizes.push(0.5 + Math.random() * 1.5);
+
+        // Star colors (white to blue-white)
+        const warm = Math.random() > 0.7 ? 1 : 0.9 + Math.random() * 0.1;
+        colors.push(warm, warm, 1);
+    }
+
+    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    starGeometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+    starGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+    const starMaterial = new THREE.PointsMaterial({
+        size: 2,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity: 0,
+        vertexColors: true,
+        blending: THREE.AdditiveBlending
+    });
+
+    starField = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starField);
+}
+
+/**
+ * Create moon for nighttime.
+ * @param {THREE.Scene} scene
+ */
+function createMoon(scene) {
+    const moonGeo = new THREE.SphereGeometry(15, 16, 16);
+    const moonMat = new THREE.MeshBasicMaterial({
+        color: 0xF0E0D0,
+        transparent: true,
+        opacity: 0
+    });
+    moon = new THREE.Mesh(moonGeo, moonMat);
+    moon.position.set(-100, 120, -150);
+    scene.add(moon);
 }
 
 export function getCycleTime() { return cycleTime; }

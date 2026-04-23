@@ -34,9 +34,10 @@ import { setupLighting, setupFog, setupSkybox, setupGround, updateDayNight, getC
 import { generateCity } from './city.js';
 import { generateNPCs, updateNPCs } from './npcs.js';
 import { detectMobile, setupControls, setupMobileControls, setupResize, updatePlayer, player } from './controls.js';
-import { setupSoundToggle, updateAudioTimeOfDay, playDiscoverySound, playAchievementSound } from './audio.js';
+import { setupSoundToggle, updateAudioTimeOfDay, playDiscoverySound, playAchievementSound, getAudioContext, getMasterGain } from './audio.js';
 import { createParticles, updateParticles } from './particles.js';
 import { createCollectibles, updateCollectibles, getScore, getCollectedCount, getTotalCollectibles } from './collectibles.js';
+import { createEnhancedCollectibles, updateEnhancedCollectibles, getTotalEnhancedCollectibles, getCollectedEnhancedCount, playEnhancedCollectionSound } from './enhanced-collectibles.js';
 import { createWildlife, updateWildlife } from './wildlife.js';
 import { createChallenges, updateChallenges, onAchievement, onDiscovery, getDiscoveries, getAchievements, getWaypointsFound, getTotalWaypoints, getAchievementList } from './challenges.js';
 import { togglePhotoMode, updatePhotoMode, isPhotoModeActive, photoModeMouseMove, photoModeScroll, cycleFilter, takeScreenshot } from './photomode.js';
@@ -47,6 +48,9 @@ import { updateHUD, togglePause, toggleJournal, showToast, getIsPaused, isJourna
 import { createDog, updateDog } from './dog.js';
 import { initWeapon, updateWeapon, resizeWeapon } from './weapon.js';
 import { createTraffic, updateTraffic } from './traffic.js';
+import { initWeather, updateWeather, toggleWeather, isWeatherEnabled } from './weather.js';
+import { startAmbient, setAmbientMood } from './ambient.js';
+import { startMiniGame, updateMiniGame, endMiniGame, GAMES, getActiveGame } from './minigames.js';
 
 // ── Module-level state ───────────────────────────────────────
 /** @type {THREE.Scene} */
@@ -97,6 +101,7 @@ function init() {
     updateLoadingProgress(60, 'Scattering treasures...');
 
     createCollectibles(scene);
+    createEnhancedCollectibles(scene);
     updateLoadingProgress(65, 'Adding wildlife...');
 
     createWildlife(scene);
@@ -118,7 +123,10 @@ function init() {
     updateLoadingProgress(88, 'Arming up...');
 
     initWeapon(scene, camera, renderer);
-    updateLoadingProgress(90, 'Setting up controls...');
+    updateLoadingProgress(90, 'Adding weather system...');
+
+    initWeather(scene);
+    updateLoadingProgress(92, 'Setting up controls...');
 
     setupControls(renderer, camera);
     setupMobileControls();
@@ -127,6 +135,9 @@ function init() {
     setupPauseMenu();
     setupJournalTabs();
     setupExtraKeyBindings();
+
+    // Start ambient music system
+    startAmbient(getAudioContext(), getMasterGain());
 
     // Achievement & discovery callbacks
     onAchievement((ach) => {
@@ -301,6 +312,26 @@ function setupExtraKeyBindings() {
             toggleJournal(getDiscoveries(), getAchievements(), getAchievementList());
         }
 
+        // Weather toggle
+        if (e.key === 'r' || e.key === 'R') {
+            const enabled = toggleWeather();
+            showToast(enabled ? '🌧️' : '☀️', 'Weather', enabled ? 'Rain starting...' : 'Clearing up...', 'info');
+        }
+
+        // Mini-game triggers
+        if (e.key === 'g' || e.key === 'G') {
+            if (getActiveGame()) {
+                const result = endMiniGame();
+                showToast('🎮', 'Game Over', `Score: ${result.score}`, 'achievement');
+            } else {
+                // Random mini-game
+                const games = Object.values(GAMES);
+                const randomGame = games[Math.floor(Math.random() * games.length)];
+                startMiniGame(randomGame, scene);
+                showToast('🎮', 'Mini-Game', 'Game started!', 'info');
+            }
+        }
+
         // Photo mode controls
         if (isPhotoModeActive()) {
             if (e.key === 'f' || e.key === 'F') {
@@ -432,6 +463,14 @@ function animate() {
     // Update traffic
     updateTraffic(delta, player);
 
+    // Update weather system
+    updateWeather(delta, elapsed, player, scene);
+
+    // Update active mini-game
+    if (getActiveGame()) {
+        updateMiniGame(delta, elapsed, player);
+    }
+
     // Get night amount for systems that need it
     const nightAmount = getNightAmount();
     const cycleTime = getCycleTime();
@@ -445,6 +484,33 @@ function animate() {
     // Update collectibles
     const collectResult = updateCollectibles(delta, elapsed, player, scene);
     if (collectResult.justCollected === 'star') starsCollected++;
+
+    // Update enhanced collectibles
+    const enhancedCollect = updateEnhancedCollectibles(delta, elapsed, player);
+    if (enhancedCollect.collected) {
+        const audioCtx = getAudioContext();
+        const masterGain = getMasterGain();
+        if (audioCtx && masterGain) {
+            playEnhancedCollectionSound(enhancedCollect.type, audioCtx, masterGain, enhancedCollect.pitch);
+        }
+        
+        let message = '';
+        switch (enhancedCollect.type) {
+            case 'rainbow_gem':
+                message = `Rainbow Gem! +${enhancedCollect.value}`;
+                break;
+            case 'artifact':
+                message = enhancedCollect.lore || 'Ancient Artifact!';
+                break;
+            case 'music_note':
+                message = 'Musical Note! ♪';
+                break;
+            case 'mystery_box':
+                message = `Mystery Box! +${enhancedCollect.value}`;
+                break;
+        }
+        showToast('✨', 'Discovery!', message, 'discovery');
+    }
 
     // Update wildlife
     updateWildlife(delta, elapsed, player);
