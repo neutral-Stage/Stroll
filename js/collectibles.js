@@ -10,7 +10,7 @@
  * @module collectibles
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 import { CITY_SIZE } from './config.js';
 import { isInsideBuilding } from './city.js';
 import { playPickupSound } from './audio.js';

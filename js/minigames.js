@@ -12,7 +12,7 @@
  * @module minigames
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 
 /** Active mini-game state */
 let activeGame = null;

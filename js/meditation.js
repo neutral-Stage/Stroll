@@ -10,7 +10,7 @@
  * @module meditation
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 
 let isActive = false;
 let meditationTime = 0;

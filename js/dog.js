@@ -11,7 +11,7 @@
  * @module dog
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 import { getAudioContext, getMasterGain, isSoundOn } from './audio.js';
 
 /** @type {THREE.Group} */

@@ -12,8 +12,8 @@
  * @module city
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import { mergeGeometries } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js';
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
     CITY_SIZE, BLOCK_SIZE, STREET_WIDTH, CELL_SIZE, HALF_CITY,
     PARK_EXCLUSION, BLOCK_SKIP_CHANCE,

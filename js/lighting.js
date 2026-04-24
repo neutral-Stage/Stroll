@@ -4,7 +4,7 @@
  * @module lighting
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 import {
     CITY_SIZE, FOG_DENSITY, FOG_COLOR, SHADOW_MAP_SIZE, SHADOW_FRUSTUM,
     SKY_RADIUS, SKY_SEGMENTS, DAY_NIGHT_CYCLE_DURATION, DAY_NIGHT_ENABLED

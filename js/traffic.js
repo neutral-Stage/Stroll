@@ -7,7 +7,7 @@
  * @module traffic
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 import { CITY_SIZE, HALF_CITY, CELL_SIZE, STREET_WIDTH, BLOCK_SIZE } from './config.js';
 
 /** @type {Array<CarData>} */

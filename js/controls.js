@@ -278,7 +278,13 @@ export function updatePlayer(delta, camera) {
  * @param {THREE.WebGLRenderer} renderer
  * @param {EffectComposer} [composer] - optional post-processing composer
  */
-export function setupResize(camera, renderer, composer) {
+/**
+ * @param {THREE.PerspectiveCamera} camera
+ * @param {THREE.WebGLRenderer} renderer
+ * @param {object} [composer] - EffectComposer instance if post-processing is enabled
+ * @param {function(): void} [onResize] - optional callback after size update (e.g. weapon overlay)
+ */
+export function setupResize(camera, renderer, composer, onResize) {
     let resizeTimeout;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
@@ -287,6 +293,7 @@ export function setupResize(camera, renderer, composer) {
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             if (composer) composer.setSize(window.innerWidth, window.innerHeight);
+            if (typeof onResize === 'function') onResize();
         }, 100);
     });
 }

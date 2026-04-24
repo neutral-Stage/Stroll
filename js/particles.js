@@ -10,7 +10,7 @@
  * @module particles
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 import { LEAF_COUNT, FIREFLY_COUNT, CITY_SIZE } from './config.js';
 
 /** @type {THREE.Points} */

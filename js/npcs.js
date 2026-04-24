@@ -9,7 +9,7 @@
  * @module npcs
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 import {
     NPC_COUNT, NPC_MIN_SPEED, NPC_SPEED_RANGE,
     NPC_PATH_MIN_POINTS, NPC_PATH_EXTRA_POINTS, NPC_PATH_STEP,

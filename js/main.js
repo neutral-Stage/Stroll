@@ -22,12 +22,12 @@
  * @module main
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import { UnrealBloomPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
-import { ShaderPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/ShaderPass.js';
-import { FXAAShader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/shaders/FXAAShader.js';
+import * as THREE from 'three';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 
 import { THOUGHTS, THOUGHT_MIN_DELAY, THOUGHT_EXTRA_DELAY, THOUGHT_DISPLAY_TIME, PLAYER_HEIGHT } from './config.js';
 import { setupLighting, setupFog, setupSkybox, setupGround, updateDayNight, getCycleTime, getNightAmount } from './lighting.js';
@@ -82,8 +82,22 @@ let cinematicDone = false;
 // ── Initialization ───────────────────────────────────────────
 
 function init() {
+    try {
+        initCore();
+    } catch (err) {
+        console.error('Stroll init failed:', err);
+        showError('Failed to start: ' + (err && err.message ? err.message : String(err)));
+    }
+}
+
+function initCore() {
     detectMobile();
     setupScene();
+
+    if (!scene || !renderer || !composer) {
+        showError('Failed to initialize WebGL. Try another browser or enable hardware acceleration.');
+        return;
+    }
 
     setupLighting(scene);
     setupFog(scene);
@@ -130,7 +144,7 @@ function init() {
 
     setupControls(renderer, camera);
     setupMobileControls();
-    setupResize(camera, renderer, composer);
+    setupResize(camera, renderer, composer, resizeWeapon);
     setupSoundToggle();
     setupPauseMenu();
     setupJournalTabs();
@@ -551,4 +565,12 @@ function animate() {
 }
 
 // ── Start ────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', init);
+// ES modules often load after DOMContentLoaded; handle both cases.
+function startWhenReady() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+        init();
+    }
+}
+startWhenReady();

@@ -10,7 +10,7 @@
  * @module interactive
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 import { isInsideBuilding } from './city.js';
 
 /** @type {Array<FlowerData>} */

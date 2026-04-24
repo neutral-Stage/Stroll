@@ -12,7 +12,7 @@
  * @module enhanced-collectibles
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 
 const enhancedCollectibles = [];
 /** Reused in the render loop to avoid per-frame Color allocations */

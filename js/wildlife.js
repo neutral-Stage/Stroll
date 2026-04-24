@@ -9,7 +9,7 @@
  * @module wildlife
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 
 const BUTTERFLY_COUNT = 15;
 const BIRD_COUNT = 8;
