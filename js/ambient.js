@@ -87,6 +87,8 @@ function clearAmbientLayers() {
  */
 export function startAmbient(audioContext, masterGain) {
     if (isPlaying) return;
+    // Audio graph is only created after user gesture (sound toggle); skip until then.
+    if (!audioContext || !masterGain) return;
 
     ctx = audioContext;
     ambientMaster = ctx.createGain();

@@ -13,6 +13,7 @@
  */
 
 import { startLofi, stopLofi } from './lofi.js';
+import { startAmbient, stopAmbient } from './ambient.js';
 
 /** @type {AudioContext|null} */
 let audioCtx = null;
@@ -69,6 +70,8 @@ function enableSound(toggle) {
         } else {
             audioCtx.resume();
         }
+        // Extra pads / piano — same graph as main soundscape (requires ctx + masterGain).
+        startAmbient(audioCtx, masterGain);
         toggle.textContent = '🔊';
         soundOn = true;
     } catch (err) {
@@ -81,6 +84,7 @@ function enableSound(toggle) {
  * @param {HTMLElement} toggle
  */
 function disableSound(toggle) {
+    stopAmbient();
     if (audioCtx) audioCtx.suspend();
     toggle.textContent = '🔇';
     soundOn = false;

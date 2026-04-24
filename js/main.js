@@ -49,7 +49,6 @@ import { createDog, updateDog } from './dog.js';
 import { initWeapon, updateWeapon, resizeWeapon } from './weapon.js';
 import { createTraffic, updateTraffic } from './traffic.js';
 import { initWeather, updateWeather, toggleWeather, isWeatherEnabled } from './weather.js';
-import { startAmbient, setAmbientMood } from './ambient.js';
 import { startMiniGame, updateMiniGame, endMiniGame, GAMES, getActiveGame } from './minigames.js';
 
 // ── Module-level state ───────────────────────────────────────
@@ -149,9 +148,6 @@ function initCore() {
     setupPauseMenu();
     setupJournalTabs();
     setupExtraKeyBindings();
-
-    // Start ambient music system
-    startAmbient(getAudioContext(), getMasterGain());
 
     // Achievement & discovery callbacks
     onAchievement((ach) => {
