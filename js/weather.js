@@ -20,12 +20,10 @@ let rainSystem = null;
 let lightning = null;
 /** @type {Array<THREE.Mesh>} */
 let puddles = [];
-/** @type {AudioContext|null} */
-let weatherAudioCtx = null;
 /** @type {GainNode|null} */
 let rainSoundGain = null;
-/** @type {OscillatorNode|null} */
-let rainOsc = null;
+/** @type {AudioBufferSourceNode|null} */
+let rainSource = null;
 
 let weatherEnabled = false;
 let weatherIntensity = 0; // 0 = no rain, 1 = heavy rain
@@ -156,8 +154,10 @@ export function setWeatherIntensity(intensity) {
  * @param {number} elapsed
  * @param {{x: number, z: number}} playerPos
  * @param {THREE.Scene} scene
+ * @param {AudioContext|null} [audioContext] — shared game context (e.g. from getAudioContext())
+ * @param {GainNode|null} [masterGain] — shared master gain (e.g. from getMasterGain())
  */
-export function updateWeather(delta, elapsed, playerPos, scene) {
+export function updateWeather(delta, elapsed, playerPos, scene, audioContext = null, masterGain = null) {
     // Smoothly transition weather intensity
     if (weatherIntensity < targetIntensity) {
         weatherIntensity = Math.min(weatherIntensity + delta * 0.2, targetIntensity);
@@ -203,7 +203,7 @@ export function updateWeather(delta, elapsed, playerPos, scene) {
         lightningTimer += delta;
         
         if (lightningTimer > nextLightningTime) {
-            triggerLightning(scene);
+            triggerLightning(scene, audioContext, masterGain);
             lightningTimer = 0;
             nextLightningTime = 8 + Math.random() * 15;
         }
@@ -214,8 +214,8 @@ export function updateWeather(delta, elapsed, playerPos, scene) {
         lightning.material.opacity = Math.max(0, lightning.material.opacity - delta * 8);
     }
 
-    // Update rain sound
-    updateRainSound(weatherIntensity);
+    // Update rain sound (uses shared Web Audio graph when sound is enabled)
+    updateRainSound(weatherIntensity, audioContext, masterGain);
 
     // Adjust fog for rain
     if (scene.fog && scene.fog.density !== undefined) {
@@ -230,59 +230,100 @@ export function updateWeather(delta, elapsed, playerPos, scene) {
 /**
  * Trigger a lightning flash.
  * @param {THREE.Scene} scene
+ * @param {AudioContext|null} [audioContext]
+ * @param {GainNode|null} [masterGain]
  */
-function triggerLightning(scene) {
+function triggerLightning(scene, audioContext = null, masterGain = null) {
     if (!lightning) return;
 
     // Visual flash
     lightning.material.opacity = 0.3 + Math.random() * 0.3;
 
     // Play thunder sound
-    playThunderSound();
+    playThunderSound(audioContext, masterGain);
 }
 
+/** @type {AudioContext|null} */
+let rainAudioCtxRef = null;
+
 /**
- * Update rain ambient sound.
+ * Update rain ambient sound (uses shared game AudioContext when available).
  * @param {number} intensity
+ * @param {AudioContext|null} [audioContext]
+ * @param {GainNode|null} [masterGain]
  */
-function updateRainSound(intensity) {
+function updateRainSound(intensity, audioContext = null, masterGain = null) {
     if (intensity === 0) {
-        if (rainOsc) {
+        if (rainSource) {
             try {
-                rainOsc.stop();
-                rainOsc = null;
-            } catch (e) {
+                rainSource.stop();
+            } catch {
                 // Already stopped
+            }
+            try {
+                rainSource.disconnect();
+            } catch {
+                // ignore
+            }
+            rainSource = null;
+        }
+        if (rainSoundGain && rainAudioCtxRef) {
+            try {
+                rainSoundGain.gain.linearRampToValueAtTime(0, rainAudioCtxRef.currentTime + 0.2);
+            } catch {
+                // ignore
             }
         }
         return;
     }
 
+    if (!audioContext || !masterGain) return;
+
     try {
-        if (!weatherAudioCtx) {
-            weatherAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            rainSoundGain = weatherAudioCtx.createGain();
-            rainSoundGain.connect(weatherAudioCtx.destination);
+        if (rainAudioCtxRef !== audioContext) {
+            if (rainSource) {
+                try {
+                    rainSource.stop();
+                } catch {
+                    // ignore
+                }
+                try {
+                    rainSource.disconnect();
+                } catch {
+                    // ignore
+                }
+                rainSource = null;
+            }
+            if (rainSoundGain) {
+                try {
+                    rainSoundGain.disconnect();
+                } catch {
+                    // ignore
+                }
+            }
+            rainSoundGain = audioContext.createGain();
+            rainSoundGain.gain.setValueAtTime(0, audioContext.currentTime);
+            rainSoundGain.connect(masterGain);
+            rainAudioCtxRef = audioContext;
         }
 
-        if (weatherAudioCtx.state === 'suspended') {
-            weatherAudioCtx.resume();
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
         }
 
-        if (!rainOsc) {
-            // Create continuous rain sound (filtered noise)
-            const bufferSize = weatherAudioCtx.sampleRate * 2;
-            const buffer = weatherAudioCtx.createBuffer(1, bufferSize, weatherAudioCtx.sampleRate);
+        if (!rainSource && rainSoundGain) {
+            const bufferSize = audioContext.sampleRate * 2;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
             const data = buffer.getChannelData(0);
             for (let i = 0; i < bufferSize; i++) {
                 data[i] = (Math.random() * 2 - 1) * 0.5;
             }
 
-            const source = weatherAudioCtx.createBufferSource();
+            const source = audioContext.createBufferSource();
             source.buffer = buffer;
             source.loop = true;
 
-            const filter = weatherAudioCtx.createBiquadFilter();
+            const filter = audioContext.createBiquadFilter();
             filter.type = 'lowpass';
             filter.frequency.value = 800;
             filter.Q.value = 0.5;
@@ -290,51 +331,51 @@ function updateRainSound(intensity) {
             source.connect(filter);
             filter.connect(rainSoundGain);
             source.start();
-            rainOsc = source;
+            rainSource = source;
         }
 
-        // Adjust volume based on intensity
         const targetVolume = intensity * 0.15;
-        rainSoundGain.gain.linearRampToValueAtTime(targetVolume, weatherAudioCtx.currentTime + 0.5);
-    } catch (e) {
+        rainSoundGain.gain.linearRampToValueAtTime(targetVolume, audioContext.currentTime + 0.5);
+    } catch {
         // Silently fail
     }
 }
 
 /**
  * Play thunder sound effect.
+ * @param {AudioContext|null} [audioContext]
+ * @param {GainNode|null} [masterGain]
  */
-function playThunderSound() {
-    if (!weatherAudioCtx) return;
+function playThunderSound(audioContext = null, masterGain = null) {
+    if (!audioContext || !masterGain) return;
 
     try {
-        const now = weatherAudioCtx.currentTime;
+        const now = audioContext.currentTime;
 
-        // Thunder = rumbling low frequency noise
-        const bufferSize = weatherAudioCtx.sampleRate * 2;
-        const buffer = weatherAudioCtx.createBuffer(1, bufferSize, weatherAudioCtx.sampleRate);
+        const bufferSize = audioContext.sampleRate * 2;
+        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
         const data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) {
-            const envelope = Math.exp(-i / (weatherAudioCtx.sampleRate * 0.5));
+            const envelope = Math.exp(-i / (audioContext.sampleRate * 0.5));
             data[i] = (Math.random() * 2 - 1) * envelope;
         }
 
-        const source = weatherAudioCtx.createBufferSource();
+        const source = audioContext.createBufferSource();
         source.buffer = buffer;
 
-        const filter = weatherAudioCtx.createBiquadFilter();
+        const filter = audioContext.createBiquadFilter();
         filter.type = 'lowpass';
         filter.frequency.value = 120;
 
-        const gain = weatherAudioCtx.createGain();
+        const gain = audioContext.createGain();
         gain.gain.setValueAtTime(0.3, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 2);
 
         source.connect(filter);
         filter.connect(gain);
-        gain.connect(weatherAudioCtx.destination);
+        gain.connect(masterGain);
         source.start(now);
-    } catch (e) {
+    } catch {
         // Silently fail
     }
 }

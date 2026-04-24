@@ -287,6 +287,7 @@ function initBreathingGame() {
     gameState.cycles = 0;
     gameState.targetCycles = 10;
     gameState.accuracy = [];
+    gameState.completed = false;
 }
 
 function updateBreathingGame(delta, elapsed) {
@@ -320,9 +321,9 @@ function updateBreathingGame(delta, elapsed) {
         }
     }
 
-    if (gameState.cycles >= gameState.targetCycles) {
-        // Complete!
+    if (gameState.cycles >= gameState.targetCycles && !gameState.completed) {
         gameScore += 100;
+        gameState.completed = true;
     }
 }
 

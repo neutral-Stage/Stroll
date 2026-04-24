@@ -464,7 +464,7 @@ function animate() {
     updateTraffic(delta, player);
 
     // Update weather system
-    updateWeather(delta, elapsed, player, scene);
+    updateWeather(delta, elapsed, player, scene, getAudioContext(), getMasterGain());
 
     // Update active mini-game
     if (getActiveGame()) {

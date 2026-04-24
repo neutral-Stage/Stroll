@@ -18,8 +18,67 @@ let ambientMaster = null;
 let isPlaying = false;
 let currentMood = 'calm'; // calm, meditative, dreamy, nature
 
-// Meditation bell intervals
+/** @type {ReturnType<typeof setTimeout>|null} */
 let bellInterval = null;
+/** @type {ReturnType<typeof setTimeout>[]} */
+let layerTimeouts = [];
+/** @type {AudioNode[]} */
+let activeLayerNodes = [];
+
+/**
+ * @param {ReturnType<typeof setTimeout>} id
+ */
+function trackLayerTimeout(id) {
+    layerTimeouts.push(id);
+}
+
+/**
+ * @param {AudioNode|null|undefined} node
+ * @returns {AudioNode|null|undefined}
+ */
+function trackLayerNode(node) {
+    if (node) activeLayerNodes.push(node);
+    return node;
+}
+
+function clearLayerTimeouts() {
+    for (const id of layerTimeouts) clearTimeout(id);
+    layerTimeouts = [];
+}
+
+/**
+ * Stop/disconnect all long-running layer nodes (drones, pads, etc.).
+ */
+function clearLayerAudioNodes() {
+    const t = ctx ? ctx.currentTime : 0;
+    for (const node of activeLayerNodes) {
+        try {
+            if ('stop' in node && typeof node.stop === 'function') {
+                node.stop(t);
+            }
+        } catch {
+            // already stopped
+        }
+        try {
+            node.disconnect();
+        } catch {
+            // already disconnected
+        }
+    }
+    activeLayerNodes = [];
+}
+
+/**
+ * Tear down active ambient layers without stopping the whole system (mood change).
+ */
+function clearAmbientLayers() {
+    clearLayerTimeouts();
+    if (bellInterval !== null) {
+        clearTimeout(bellInterval);
+        bellInterval = null;
+    }
+    clearLayerAudioNodes();
+}
 
 /**
  * Initialize ambient sound system.
@@ -45,8 +104,15 @@ export function startAmbient(audioContext, masterGain) {
  */
 export function stopAmbient() {
     isPlaying = false;
-    if (bellInterval) clearInterval(bellInterval);
-    bellInterval = null;
+    clearAmbientLayers();
+    if (ambientMaster) {
+        try {
+            ambientMaster.disconnect();
+        } catch {
+            // ignore
+        }
+        ambientMaster = null;
+    }
 }
 
 /**
@@ -56,7 +122,7 @@ export function stopAmbient() {
 export function setAmbientMood(mood) {
     currentMood = mood;
     if (isPlaying) {
-        stopAmbient();
+        clearAmbientLayers();
         startAmbientLayers();
     }
 }
@@ -92,6 +158,10 @@ function startAmbientLayers() {
  * Start meditation bells.
  */
 function startMeditationBells() {
+    const scheduleNextBell = () => {
+        bellInterval = setTimeout(playBell, 6000 + Math.random() * 4000);
+    };
+
     const playBell = () => {
         if (!isPlaying || !ctx) return;
 
@@ -119,9 +189,10 @@ function startMeditationBells() {
         osc2.start(now);
         osc.stop(now + 4.5);
         osc2.stop(now + 4.5);
+
+        scheduleNextBell();
     };
 
-    bellInterval = setInterval(playBell, 6000 + Math.random() * 4000);
     playBell();
 }
 
@@ -135,12 +206,12 @@ function startDeepDrone() {
     const baseFreq = 110; // A2
 
     [1, 1.5, 2].forEach((mult, i) => {
-        const osc = ctx.createOscillator();
+        const osc = trackLayerNode(ctx.createOscillator());
         osc.type = 'sine';
         osc.frequency.setValueAtTime(baseFreq * mult, now);
         osc.detune.setValueAtTime(-5 + Math.random() * 10, now);
 
-        const gain = ctx.createGain();
+        const gain = trackLayerNode(ctx.createGain());
         gain.gain.setValueAtTime(0, now);
         gain.gain.linearRampToValueAtTime(0.015 - i * 0.003, now + 3);
 
@@ -205,7 +276,7 @@ function startDreamyPad() {
         });
 
         chordIndex = (chordIndex + 1) % chords.length;
-        setTimeout(playChord, 8000);
+        trackLayerTimeout(setTimeout(playChord, 8000));
     };
 
     playChord();
@@ -221,16 +292,16 @@ function startCalmPad() {
     const notes = [261.63, 293.66, 329.63, 392.00]; // C D E G
 
     notes.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
+        const osc = trackLayerNode(ctx.createOscillator());
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq * 0.5, now);
         osc.detune.setValueAtTime(-10 + Math.random() * 20, now);
 
-        const gain = ctx.createGain();
+        const gain = trackLayerNode(ctx.createGain());
         gain.gain.setValueAtTime(0, now);
         gain.gain.linearRampToValueAtTime(0.018 - i * 0.003, now + 4);
 
-        const filter = ctx.createBiquadFilter();
+        const filter = trackLayerNode(ctx.createBiquadFilter());
         filter.type = 'lowpass';
         filter.frequency.setValueAtTime(800, now);
 
@@ -282,10 +353,10 @@ function startSoftPiano() {
         osc.stop(now + 3);
         osc2.stop(now + 3);
 
-        setTimeout(playNote, 3000 + Math.random() * 5000);
+        trackLayerTimeout(setTimeout(playNote, 3000 + Math.random() * 5000));
     };
 
-    setTimeout(playNote, 2000);
+    trackLayerTimeout(setTimeout(playNote, 2000));
 }
 
 /**
@@ -325,7 +396,7 @@ function startNatureSounds() {
         gain.connect(ambientMaster);
         source.start(now);
 
-        setTimeout(playWave, 5000 + Math.random() * 3000);
+        trackLayerTimeout(setTimeout(playWave, 5000 + Math.random() * 3000));
     };
 
     playWave();
@@ -367,10 +438,10 @@ function startWindChimes() {
         osc.stop(now + 3.5);
         osc2.stop(now + 3.5);
 
-        setTimeout(playChime, 4000 + Math.random() * 8000);
+        trackLayerTimeout(setTimeout(playChime, 4000 + Math.random() * 8000));
     };
 
-    setTimeout(playChime, 3000);
+    trackLayerTimeout(setTimeout(playChime, 3000));
 }
 
 export function getCurrentMood() {

@@ -15,6 +15,8 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 const enhancedCollectibles = [];
+/** Reused in the render loop to avoid per-frame Color allocations */
+const _tmpColor = new THREE.Color();
 const RAINBOW_GEM_COUNT = 10;
 const ARTIFACT_COUNT = 5;
 const MUSIC_NOTE_COUNT = 12;
@@ -178,8 +180,11 @@ function createMusicNotes(scene) {
 
         // Note sphere with emoji-like appearance
         const noteGeo = new THREE.SphereGeometry(0.4, 16, 16);
+        const hue =
+            ((notes[i % notes.length].codePointAt(0) ?? 0) * 37 + i * 41) % 360;
+        const noteColor = _tmpColor.setHSL(hue / 360, 0.85, 0.55).getHex();
         const noteMat = new THREE.MeshBasicMaterial({
-            color: 0x9c27b0,
+            color: noteColor,
             transparent: true,
             opacity: 0.9
         });
@@ -194,7 +199,7 @@ function createMusicNotes(scene) {
         }
         trailGeo.setAttribute('position', new THREE.Float32BufferAttribute(trailPositions, 3));
         const trailMat = new THREE.PointsMaterial({
-            color: 0x9c27b0,
+            color: noteColor,
             size: 0.15,
             transparent: true,
             opacity: 0.5,
@@ -299,10 +304,10 @@ export function updateEnhancedCollectibles(delta, elapsed, playerPos) {
                 // Color cycling
                 item.colorPhase += delta;
                 const hue = (item.colorPhase * 50) % 360;
-                const color = new THREE.Color().setHSL(hue / 360, 1, 0.5);
-                item.gem.material.color.copy(color);
-                item.gem.material.emissive.copy(color);
-                item.ring.material.color.copy(color);
+                _tmpColor.setHSL(hue / 360, 1, 0.5);
+                item.gem.material.color.copy(_tmpColor);
+                item.gem.material.emissive.copy(_tmpColor);
+                item.ring.material.color.copy(_tmpColor);
 
                 // Rotation
                 item.gem.rotation.y += delta * 2;
