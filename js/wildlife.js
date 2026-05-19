@@ -10,6 +10,8 @@
  */
 
 import * as THREE from 'three';
+import { WILDLIFE_CULL_DISTANCE } from './config.js';
+import { getQuality } from './quality.js';
 
 const BUTTERFLY_COUNT = 15;
 const BIRD_COUNT = 8;
@@ -147,8 +149,12 @@ function createBirds(scene) {
  * @param {{x:number, z:number}} playerPos
  */
 export function updateWildlife(delta, elapsed, playerPos) {
-    // Update butterflies
+    const cullDist = getQuality().wildlifeCullDistance || WILDLIFE_CULL_DISTANCE;
+
     for (const b of butterflies) {
+        const bdx = b.mesh.position.x - playerPos.x;
+        const bdz = b.mesh.position.z - playerPos.z;
+        if (Math.sqrt(bdx * bdx + bdz * bdz) > cullDist) continue;
         b.phase += delta * b.wingSpeed;
 
         // Wing flapping
@@ -182,8 +188,10 @@ export function updateWildlife(delta, elapsed, playerPos) {
         }
     }
 
-    // Update birds
     for (const bird of birds) {
+        const bdx = bird.mesh.position.x - playerPos.x;
+        const bdz = bird.mesh.position.z - playerPos.z;
+        if (Math.sqrt(bdx * bdx + bdz * bdz) > cullDist) continue;
         bird.phase += delta * bird.wingSpeed;
         bird.circleAngle += bird.circleSpeed * delta;
 

@@ -6,9 +6,10 @@
 
 import * as THREE from 'three';
 import {
-    CITY_SIZE, FOG_DENSITY, FOG_COLOR, SHADOW_MAP_SIZE, SHADOW_FRUSTUM,
+    CITY_SIZE, FOG_DENSITY, FOG_COLOR, SHADOW_FRUSTUM,
     SKY_RADIUS, SKY_SEGMENTS, DAY_NIGHT_CYCLE_DURATION, DAY_NIGHT_ENABLED
 } from './config.js';
+import { getQuality } from './quality.js';
 
 /** @type {THREE.DirectionalLight} */
 let sun;
@@ -49,8 +50,9 @@ export function setupLighting(scene) {
     sun = new THREE.DirectionalLight(0xFFA726, 1.4);
     sun.position.set(-80, 40, -60);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = SHADOW_MAP_SIZE * 2; // Higher resolution shadows
-    sun.shadow.mapSize.height = SHADOW_MAP_SIZE * 2;
+    const shadowSize = getQuality().shadowMapSize;
+    sun.shadow.mapSize.width = shadowSize;
+    sun.shadow.mapSize.height = shadowSize;
     sun.shadow.camera.near = 0.5;
     sun.shadow.camera.far = 400;
     sun.shadow.camera.left = -SHADOW_FRUSTUM;

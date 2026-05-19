@@ -15,6 +15,12 @@
  */
 
 import * as THREE from 'three';
+import { FEATURE_WEAPON } from './config.js';
+import { canPlayerAct } from './player-input.js';
+import { pickWalkablePositionOrOrigin } from './spawn-utils.js';
+import { emit, Events } from './events.js';
+
+let weaponEnabled = false;
 
 /** @type {THREE.Scene} */
 let sceneRef = null;
@@ -63,7 +69,13 @@ const raycaster = new THREE.Raycaster();
  * @param {THREE.PerspectiveCamera} camera
  * @param {THREE.WebGLRenderer} renderer
  */
+export function isWeaponEnabled() {
+    return weaponEnabled;
+}
+
 export function initWeapon(scene, camera, renderer) {
+    if (!FEATURE_WEAPON) return;
+    weaponEnabled = true;
     sceneRef = scene;
     cameraRef = camera;
 
@@ -212,22 +224,7 @@ function createAmmoHUD() {
 
     const ammoHud = document.createElement('div');
     ammoHud.id = 'ammo-hud';
-    ammoHud.style.cssText = `
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        color: white;
-        font-family: 'Courier New', monospace;
-        font-size: 18px;
-        font-weight: bold;
-        text-shadow: 0 0 10px rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.5);
-        z-index: 100;
-        pointer-events: none;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    `;
-    ammoHud.innerHTML = `<span style="font-size:14px;">🔫</span> <span id="ammo-count">${ammo}</span>`;
+    ammoHud.innerHTML = `<span class="ammo-icon">🔫</span> <span id="ammo-count">${ammo}</span>`;
     document.body.appendChild(ammoHud);
 }
 
@@ -237,7 +234,6 @@ function createAmmoHUD() {
  */
 function createAmmoPickups(scene) {
     const pickupCount = 15;
-    const cityHalf = 80;
 
     for (let i = 0; i < pickupCount; i++) {
         const group = new THREE.Group();
@@ -265,8 +261,7 @@ function createAmmoPickups(scene) {
         );
         group.add(glow);
 
-        const x = (Math.random() - 0.5) * cityHalf * 2;
-        const z = (Math.random() - 0.5) * cityHalf * 2;
+        const { x, z } = pickWalkablePositionOrOrigin({ padding: 1.5 });
         group.position.set(x, 0.3, z);
 
         scene.add(group);
@@ -283,7 +278,7 @@ function createAmmoPickups(scene) {
  * Shoot the pistol.
  */
 function shoot() {
-    if (ammo <= 0 || isRecoiling) return;
+    if (!canPlayerAct() || ammo <= 0 || isRecoiling) return;
 
     ammo--;
     updateAmmoDisplay();
@@ -296,11 +291,9 @@ function shoot() {
         muzzleFlashTime = MUZZLE_FLASH_DURATION;
     }
 
-    // Play gunshot sound
     playGunshotSound();
-
-    // Create bullet
     createBullet();
+    emit(Events.WEAPON_SHOT, { ammo });
 }
 
 /**
@@ -429,6 +422,7 @@ function createExplosionEffect(position, size = 1) {
  * @param {THREE.WebGLRenderer} renderer
  */
 export function updateWeapon(delta, elapsed, playerPos, renderer) {
+    if (!weaponEnabled) return;
     // Update recoil animation
     if (isRecoiling) {
         recoilTime += delta;

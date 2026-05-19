@@ -11,8 +11,7 @@
  */
 
 import * as THREE from 'three';
-import { CITY_SIZE } from './config.js';
-import { isInsideBuilding } from './city.js';
+import { pickWalkablePositionOrOrigin } from './spawn-utils.js';
 import { playPickupSound } from './audio.js';
 
 /** @type {Array<CollectibleData>} */
@@ -57,14 +56,9 @@ function spawnCollectibles(scene, type, count, geo) {
     const typeData = TYPES[type];
 
     for (let i = 0; i < count; i++) {
-        let x, z, attempts = 0;
-        do {
-            x = (Math.random() - 0.5) * CITY_SIZE * 0.85;
-            z = (Math.random() - 0.5) * CITY_SIZE * 0.85;
-            attempts++;
-        } while (isInsideBuilding(x, z, 2) && attempts < 30);
-
-        if (attempts >= 30) continue;
+        const pos = pickWalkablePositionOrOrigin({ padding: 2, avoidParkCenter: false });
+        const x = pos.x;
+        const z = pos.z;
 
         const mat = new THREE.MeshStandardMaterial({
             color: typeData.color,

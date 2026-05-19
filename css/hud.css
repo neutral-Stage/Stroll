@@ -162,3 +162,25 @@ body.playing #hud {
     font-style: italic;
     margin-top: 2px;
 }
+
+/* ── Weapon ammo (peaceful mode: hidden via JS) ─────────────── */
+
+#ammo-hud {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--stroll-text);
+    font-family: var(--stroll-font-mono);
+    font-size: 16px;
+    font-weight: bold;
+    text-shadow: var(--stroll-shadow);
+    z-index: var(--z-hud);
+    pointer-events: none;
+}
+
+#ammo-hud .ammo-icon {
+    font-size: 14px;
+}

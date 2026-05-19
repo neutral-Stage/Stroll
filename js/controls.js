@@ -17,6 +17,7 @@ import {
     CONTROLS_HINT_FADE_DELAY
 } from './config.js';
 import { isInsideBuilding } from './city.js';
+import { canPlayerMove } from './player-input.js';
 
 /** Player state */
 export const player = { x: 0, z: 0, yaw: 0, pitch: 0 };
@@ -212,6 +213,8 @@ function fadeControlsHint() {
  * @param {THREE.PerspectiveCamera} camera
  */
 export function updatePlayer(delta, camera) {
+    if (!canPlayerMove()) return;
+
     let moveX = 0;
     let moveZ = 0;
 

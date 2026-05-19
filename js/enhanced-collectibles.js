@@ -13,26 +13,9 @@
  */
 
 import * as THREE from 'three';
-import { isInsideBuilding } from './city.js';
-import { CITY_SIZE } from './config.js';
+import { pickWalkablePositionOrOrigin } from './spawn-utils.js';
 
 const enhancedCollectibles = [];
-
-/**
- * Pick a walkable point (not inside a building footprint).
- * @returns {{ x: number, z: number }}
- */
-function randomStreetPosition() {
-    const span = CITY_SIZE - 40;
-    for (let attempt = 0; attempt < 48; attempt++) {
-        const x = (Math.random() - 0.5) * span;
-        const z = (Math.random() - 0.5) * span;
-        if (!isInsideBuilding(x, z, 1.2)) {
-            return { x, z };
-        }
-    }
-    return { x: 0, z: 0 };
-}
 /** Reused in the render loop to avoid per-frame Color allocations */
 const _tmpColor = new THREE.Color();
 const RAINBOW_GEM_COUNT = 10;
@@ -84,7 +67,7 @@ function createRainbowGems(scene) {
         ring.rotation.x = Math.PI / 2;
         group.add(ring);
 
-        const { x, z } = randomStreetPosition();
+        const { x, z } = pickWalkablePositionOrOrigin({ padding: 1.2 });
         group.position.set(x, 2, z);
 
         scene.add(group);
@@ -162,7 +145,7 @@ function createArtifacts(scene) {
         const particles = new THREE.Points(particleGeo, particleMat);
         group.add(particles);
 
-        const { x, z } = randomStreetPosition();
+        const { x, z } = pickWalkablePositionOrOrigin({ padding: 1.2 });
         group.position.set(x, 1.5, z);
 
         scene.add(group);
@@ -220,7 +203,7 @@ function createMusicNotes(scene) {
         const trail = new THREE.Points(trailGeo, trailMat);
         group.add(trail);
 
-        const { x, z } = randomStreetPosition();
+        const { x, z } = pickWalkablePositionOrOrigin({ padding: 1.2 });
         group.position.set(x, 3 + Math.random() * 2, z);
 
         scene.add(group);
@@ -277,7 +260,7 @@ function createMysteryBoxes(scene) {
         const sparkle = new THREE.Mesh(sparkleGeo, sparkleMat);
         group.add(sparkle);
 
-        const { x, z } = randomStreetPosition();
+        const { x, z } = pickWalkablePositionOrOrigin({ padding: 1.2 });
         group.position.set(x, 0.8, z);
 
         scene.add(group);

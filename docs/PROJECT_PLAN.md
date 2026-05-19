@@ -10,14 +10,15 @@ See **[ARCHITECTURE.md](./ARCHITECTURE.md)** for module map and runtime flow.
 
 | Layer | Responsibility |
 |-------|----------------|
-| `index.html` | DOM shells for HUD, overlays, import map |
-| `css/tokens.css` + `css/style.css` | Theme tokens + component styles |
-| `js/config.js` | Tunables |
-| `js/game-state.js` | Session flags + stats builders for challenges / pause |
-| `js/main.js` | Boot, loop, wiring |
-| Feature modules | `create*` at init, `update*` in `animate()` |
+| `index.html` | DOM shells for HUD, overlays, import map (dev) |
+| `css/` partials | Theme tokens + component styles |
+| `js/config.js` | Tunables + feature flags |
+| `js/game-state.js` | Session flags + stats builders |
+| `js/game-loop.js` | Per-frame update branches |
+| `js/main.js` | Boot, scene setup, wiring |
+| Feature modules | `create*` at init, `update*` in `tick()` |
 
-## Phase 1 — Integration & correctness ✅ (in progress)
+## Phase 1 — Integration & correctness ✅
 
 - [x] ES module boot timing, WebGL guard, single Three.js import map
 - [x] Audio only after user gesture; ambient deferred
@@ -30,25 +31,28 @@ See **[ARCHITECTURE.md](./ARCHITECTURE.md)** for module map and runtime flow.
 
 ## Phase 2 — Frontend polish ✅
 
-- [x] Split `style.css` into `base.css`, `hud.css`, `overlays.css`, `reduced-motion.css` (keep `tokens.css`)
-- [x] Mini-game UI uses `#minigame-ui` CSS classes (no inline panel styles)
+- [x] Split `style.css` into partials (`base`, `hud`, `overlays`, `reduced-motion`)
+- [x] Mini-game UI uses `#minigame-ui` CSS classes
 - [x] Focus trap in journal / pause (`focus-trap.js`)
-- [x] `prefers-reduced-motion` for breathing guide & toasts (`accessibility.js` + CSS)
-- [x] Loading error state with **Try again** (reload) when WebGL fails
+- [x] `prefers-reduced-motion` for breathing guide & toasts
+- [x] Loading error state with **Try again** when WebGL fails
 
-## Phase 3 — Gameplay fit & performance
+## Phase 3 — Gameplay fit & performance ✅
 
-- [ ] Spawn collectibles only on walkable tiles (`isInsideBuilding` + park rules)
-- [ ] NPC / traffic culling already partial — profile on low-end mobile
-- [ ] Optional quality preset in `config` (shadow size, bloom, particle counts)
-- [ ] Feature flag: hide weapon UI for “peaceful only” builds
+- [x] Walkable spawn helpers (`spawn-utils.js`) for collectibles / pickups
+- [x] Quality presets (`quality.js`) — shadows, bloom, FXAA, particles, NPC count
+- [x] Traffic / wildlife distance culling from quality preset
+- [x] Feature flags: `FEATURE_WEAPON` (peaceful default), `FEATURE_MINIGAMES`
+- [x] `canPlayerAct` / `canPlayerMove` guards (`player-input.js`)
+- [x] Central input bindings (`input.js`), thin `main.js`, `game-loop.js`
+- [x] Ambient mood cycle (**B** key)
 
-## Phase 4 — Quality & shipping
+## Phase 4 — Quality & shipping ✅
 
-- [ ] Playwright: load page, no console errors, canvas visible
-- [ ] Optional Vite build for production CDN pinning
-- [ ] GitHub Pages / static deploy script
-- [ ] Keep README controls table in sync with `index.html` hints
+- [x] Playwright smoke tests (canvas + pause menu)
+- [x] Vite production build (`npm run build`) with `three` dependency
+- [x] GitHub Actions CI + Pages deploy (`BASE_PATH=/Stroll/`)
+- [x] README + architecture docs synced with peaceful default
 
 ## Definition of “done” for integration
 
@@ -61,7 +65,15 @@ See **[ARCHITECTURE.md](./ARCHITECTURE.md)** for module map and runtime flow.
 
 ## Maintenance rules
 
-- New feature → `create` + `update` + register in `main.animate` in the correct mode branch  
+- New feature → `create` + `update` + register in `game-loop.tick` in the correct mode branch  
 - New UI → id in `index.html` + styles in `css/` + logic in `hud.js` or feature module  
 - New tunable → `config.js`  
-- New progress flag → `game-state.js`
+- New progress flag → `game-state.js`  
+- Cross-module hooks → `events.js` (`Events.PICKUP`, etc.)
+
+## Optional next steps
+
+- Finish remaining mini-games (memory, rhythm, constellation) or remove dead code
+- URL query `?quality=low|medium|high` override
+- Service worker / offline shell for PWA
+- Bundle size: code-split weapon module when `FEATURE_WEAPON` is false

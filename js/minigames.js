@@ -18,6 +18,11 @@ import * as THREE from 'three';
 let activeGame = null;
 let gameScore = 0;
 let gameState = {};
+/** @type {THREE.Scene|null} */
+let sceneRef = null;
+
+/** Games that are fully playable */
+const PLAYABLE_GAMES = ['treasure', 'breathing'];
 
 /** Mini-game types */
 const GAMES = {
@@ -36,9 +41,10 @@ const GAMES = {
  */
 export function startMiniGame(gameType, scene) {
     if (activeGame) {
-        endMiniGame();
+        endMiniGame(scene);
     }
 
+    sceneRef = scene;
     activeGame = gameType;
     gameScore = 0;
     gameState = {};
@@ -65,25 +71,38 @@ export function startMiniGame(gameType, scene) {
     }
 
     showGameUI(gameType);
+    if (gameType === GAMES.TREASURE && gameState.clues?.[0]) {
+        updateTreasureInstructions(gameState.clues[0].text);
+    }
+    if (gameType === GAMES.BREATHING) {
+        const el = document.getElementById('game-instructions');
+        if (el) el.textContent = 'Match the breathing rhythm. Press G to exit.';
+    }
 }
 
 /**
  * End current mini-game.
+ * @param {THREE.Scene} [scene]
  */
-export function endMiniGame() {
-    if (!activeGame) return;
+export function endMiniGame(scene) {
+    if (!activeGame) return { type: null, score: 0 };
 
     hideGameUI();
-    cleanupGameObjects();
-    
+    cleanupGameObjects(scene || sceneRef);
+
     const finalScore = gameScore;
     const gameType = activeGame;
-    
+
     activeGame = null;
     gameScore = 0;
     gameState = {};
+    sceneRef = null;
 
     return { type: gameType, score: finalScore };
+}
+
+export function getPlayableGames() {
+    return [...PLAYABLE_GAMES];
 }
 
 /**
@@ -92,29 +111,21 @@ export function endMiniGame() {
  * @param {number} elapsed
  * @param {{x: number, z: number}} playerPos
  */
-export function updateMiniGame(delta, elapsed, playerPos) {
+export function updateMiniGame(delta, elapsed, playerPos, scene) {
     if (!activeGame) return;
 
     switch (activeGame) {
-        case GAMES.MEMORY:
-            updateMemoryGame(delta, elapsed);
-            break;
-        case GAMES.RHYTHM:
-            updateRhythmGame(delta, elapsed);
-            break;
         case GAMES.TREASURE:
             updateTreasureHunt(delta, playerPos);
-            break;
-        case GAMES.PHOTO:
-            updatePhotoChallenge(delta);
             break;
         case GAMES.BREATHING:
             updateBreathingGame(delta, elapsed);
             break;
-        case GAMES.CONSTELLATION:
-            updateConstellationGame(delta, playerPos);
+        default:
             break;
     }
+
+    updateGameScoreUI();
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -235,25 +246,46 @@ function createTreasureMarker(scene, position) {
 }
 
 function updateTreasureHunt(delta, playerPos) {
-    if (gameState.currentClue >= gameState.clues.length) return;
+    if (gameState.currentClue >= gameState.clues.length) {
+        updateTreasureInstructions('All treasures found! Press G to exit.');
+        return;
+    }
 
     const currentTreasure = gameState.treasures[gameState.currentClue];
     if (!currentTreasure) return;
 
-    // Animate treasure
     currentTreasure.rotation.y += delta * 2;
     currentTreasure.position.y = 1 + Math.sin(Date.now() * 0.003) * 0.3;
 
-    // Check if player is near
+    const clue = gameState.clues[gameState.currentClue];
+    updateTreasureInstructions(`${clue.text} (${gameState.currentClue + 1}/${gameState.clues.length})`);
+
     const dx = playerPos.x - currentTreasure.position.x;
     const dz = playerPos.z - currentTreasure.position.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
 
-    if (dist < 3) {
-        // Found treasure!
+    if (dist < 4) {
         gameScore += 100;
         gameState.currentClue++;
         currentTreasure.visible = false;
+        if (gameState.currentClue >= gameState.clues.length) {
+            gameScore += 200;
+            updateTreasureInstructions('Complete! Press G to exit.');
+        }
+    }
+}
+
+function updateTreasureInstructions(text) {
+    const el = document.getElementById('game-instructions');
+    if (el) el.textContent = text;
+}
+
+function updateGameScoreUI() {
+    const el = document.getElementById('game-score');
+    if (el) el.textContent = `Score: ${gameScore}`;
+    const progress = document.getElementById('game-progress');
+    if (progress && activeGame === GAMES.BREATHING) {
+        progress.textContent = `Cycles: ${gameState.cycles || 0} / ${gameState.targetCycles || 10}`;
     }
 }
 
@@ -381,8 +413,8 @@ function hideGameUI() {
     }
 }
 
-function cleanupGameObjects() {
-    // Remove game-specific objects from scene
+function cleanupGameObjects(scene) {
+    if (!scene) return;
     if (gameState.cards) {
         for (const card of gameState.cards) {
             if (card.mesh && card.mesh.parent) {
@@ -394,6 +426,8 @@ function cleanupGameObjects() {
         for (const treasure of gameState.treasures) {
             if (treasure && treasure.parent) {
                 treasure.parent.remove(treasure);
+            } else if (treasure) {
+                scene.remove(treasure);
             }
         }
     }

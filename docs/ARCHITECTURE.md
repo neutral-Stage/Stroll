@@ -1,6 +1,6 @@
 # Stroll — project architecture & maintenance guide
 
-Vanilla ES modules + Three.js (`r160`) loaded via **import map** in `index.html`. No bundler — works from any static host (GitHub Pages, previews, etc.).
+Vanilla ES modules + Three.js (`r160`). **Development:** open `index.html` or `npm run dev` (Vite). **Production:** `npm run build` bundles into `dist/`; GitHub Pages uses `BASE_PATH=/Stroll/`.
 
 ## Layout
 
@@ -18,8 +18,14 @@ Vanilla ES modules + Three.js (`r160`) loaded via **import map** in `index.html`
 │   ├── ARCHITECTURE.md This file
 │   └── PROJECT_PLAN.md Roadmap and definition of done
 └── js/
-    ├── main.js         Boot, scene/renderer/composer, game loop glue
+    ├── main.js         Boot, scene/renderer/composer, wiring
+    ├── game-loop.js    Per-frame tick (modes: cinematic, pause, photo, play)
+    ├── input.js        Keyboard / pointer bindings (photo, journal, mood, games)
     ├── game-state.js   Session flags + stats builders (HUD / achievements / pause)
+    ├── spawn-utils.js  Walkable placement for pickups
+    ├── player-input.js canPlayerAct / canPlayerMove guards
+    ├── quality.js      low / medium / high graphics presets
+    ├── events.js       Lightweight pub/sub (pickup, etc.)
     ├── focus-trap.js   Keyboard focus for pause / journal modals
     ├── accessibility.js prefers-reduced-motion helper
     ├── config.js       Tunables — prefer changing values here vs scattered literals
@@ -53,7 +59,7 @@ Vanilla ES modules + Three.js (`r160`) loaded via **import map** in `index.html`
 2. **`init()`** — try/catch; **`initCore()`** bails early if WebGL/composer/scene failed.
 3. **World build** — city → NPCs → collectibles → … → controls + UI bindings.
 4. **First frame** — loading screen hides, cinematic starts (optional skip). Gameplay branch of **`animate()`** runs after cinematic.
-5. **Loop** — movement → NPCs/day-night/particles/traffic/dog → weather (+ optional audio ctx) → minigames → collectibles (**score** updates in `collectibles.js`) → enhanced pickups (**`addScore`**) → challenges → HUD → composer render → weapon pass.
+5. **Loop** — `game-loop.tick()` — movement → NPCs/day-night/particles/traffic/dog → weather → minigames → collectibles → enhanced → challenges → HUD → composer render → optional weapon pass.
 
 ### Single sources of truth
 

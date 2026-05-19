@@ -13,6 +13,16 @@ export const HALF_CITY = CITY_SIZE / 2;
 export const PARK_EXCLUSION = 25; // radius around center reserved for park
 export const BLOCK_SKIP_CHANCE = 0.15; // probability of skipping a block
 
+// ── Feature flags ────────────────────────────────────────────
+/** Peaceful default: no weapon. Set true for combat / destructibles. */
+export const FEATURE_WEAPON = false;
+/** Mini-games enabled (treasure hunt + breathing only when true). */
+export const FEATURE_MINIGAMES = true;
+
+// ── Culling ──────────────────────────────────────────────────
+export const TRAFFIC_CULL_DISTANCE = 90;
+export const WILDLIFE_CULL_DISTANCE = 70;
+
 // ── Player ───────────────────────────────────────────────────
 export const WALK_SPEED = 0.04;
 export const LOOK_SPEED = 0.002;

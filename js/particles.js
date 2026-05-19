@@ -11,7 +11,8 @@
  */
 
 import * as THREE from 'three';
-import { LEAF_COUNT, FIREFLY_COUNT, CITY_SIZE } from './config.js';
+import { CITY_SIZE } from './config.js';
+import { getQuality } from './quality.js';
 
 /** @type {THREE.Points} */
 let leafSystem = null;
@@ -22,6 +23,8 @@ let leafVelocities = null;
 let fireflySystem = null;
 /** @type {Float32Array} */
 let fireflyPhases = null;
+let leafCount = 0;
+let fireflyCount = 0;
 
 /**
  * Create all particle systems and add to scene.
@@ -37,10 +40,11 @@ export function createParticles(scene) {
  * @param {THREE.Scene} scene
  */
 function createLeaves(scene) {
-    const positions = new Float32Array(LEAF_COUNT * 3);
-    leafVelocities = new Float32Array(LEAF_COUNT * 3);
+    leafCount = getQuality().leafCount;
+    const positions = new Float32Array(leafCount * 3);
+    leafVelocities = new Float32Array(leafCount * 3);
 
-    for (let i = 0; i < LEAF_COUNT; i++) {
+    for (let i = 0; i < leafCount; i++) {
         const i3 = i * 3;
         positions[i3] = (Math.random() - 0.5) * 80;     // x — near player area
         positions[i3 + 1] = 2 + Math.random() * 15;      // y — above ground
@@ -73,10 +77,11 @@ function createLeaves(scene) {
  * @param {THREE.Scene} scene
  */
 function createFireflies(scene) {
-    const positions = new Float32Array(FIREFLY_COUNT * 3);
-    fireflyPhases = new Float32Array(FIREFLY_COUNT);
+    fireflyCount = getQuality().fireflyCount;
+    const positions = new Float32Array(fireflyCount * 3);
+    fireflyPhases = new Float32Array(fireflyCount);
 
-    for (let i = 0; i < FIREFLY_COUNT; i++) {
+    for (let i = 0; i < fireflyCount; i++) {
         const i3 = i * 3;
         positions[i3] = (Math.random() - 0.5) * 60;
         positions[i3 + 1] = 1 + Math.random() * 5;
@@ -118,7 +123,7 @@ function updateLeaves(delta, playerPos) {
     if (!leafSystem) return;
     const positions = leafSystem.geometry.attributes.position.array;
 
-    for (let i = 0; i < LEAF_COUNT; i++) {
+    for (let i = 0; i < leafCount; i++) {
         const i3 = i * 3;
 
         // Add wind sway
@@ -144,7 +149,7 @@ function updateFireflies(delta, elapsed) {
     if (!fireflySystem) return;
     const positions = fireflySystem.geometry.attributes.position.array;
 
-    for (let i = 0; i < FIREFLY_COUNT; i++) {
+    for (let i = 0; i < fireflyCount; i++) {
         const i3 = i * 3;
         fireflyPhases[i] += delta * (0.5 + Math.random() * 0.5);
 

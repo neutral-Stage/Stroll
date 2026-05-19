@@ -11,9 +11,6 @@
  */
 
 import * as THREE from 'three';
-import { isInsideBuilding } from './city.js';
-import { CITY_SIZE } from './config.js';
-
 /** @type {Array<WaypointData>} */
 const waypoints = [];
 /** @type {Array<string>} */

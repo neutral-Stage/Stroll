@@ -1,16 +1,6 @@
+// @ts-check
 /**
- * main.js — Entry point for Stroll: A Peaceful City Walk (Enhanced Edition)
- *
- * Orchestrates initialization and the render loop. Feature modules:
- *
- *  Scene & world     config, lighting, city, particles, weather
- *  Life & traffic    npcs, dog, traffic, wildlife
- *  Player            controls (desktop + mobile), weapon
- *  Pickups           collectibles, enhanced-collectibles, challenges
- *  Modes & UI        photomode, meditation, hud, cinematic
- *  Interaction       interactive (flowers), minigames
- *  Audio             audio (toggle + soundscape), ambient (after user enables sound)
- *
+ * main.js — Entry point for Stroll
  * @module main
  */
 
@@ -21,30 +11,36 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 
-import { THOUGHTS, THOUGHT_MIN_DELAY, THOUGHT_EXTRA_DELAY, THOUGHT_DISPLAY_TIME, PLAYER_HEIGHT } from './config.js';
-import { setupLighting, setupFog, setupSkybox, setupGround, updateDayNight, getCycleTime, getNightAmount } from './lighting.js';
+import {
+    THOUGHTS, THOUGHT_MIN_DELAY, THOUGHT_EXTRA_DELAY, THOUGHT_DISPLAY_TIME,
+    PLAYER_HEIGHT, FEATURE_WEAPON, FEATURE_MINIGAMES,
+} from './config.js';
+import { setupLighting, setupFog, setupSkybox, setupGround } from './lighting.js';
 import { generateCity } from './city.js';
-import { generateNPCs, updateNPCs } from './npcs.js';
-import { detectMobile, setupControls, setupMobileControls, setupResize, updatePlayer, player } from './controls.js';
-import { setupSoundToggle, updateAudioTimeOfDay, playDiscoverySound, playAchievementSound, getAudioContext, getMasterGain } from './audio.js';
-import { createParticles, updateParticles } from './particles.js';
-import { createCollectibles, updateCollectibles, addScore, getScore, getCollectedCount, getTotalCollectibles } from './collectibles.js';
-import { createEnhancedCollectibles, updateEnhancedCollectibles, getTotalEnhancedCollectibles, getCollectedEnhancedCount, playEnhancedCollectionSound } from './enhanced-collectibles.js';
-import { createWildlife, updateWildlife } from './wildlife.js';
-import { createChallenges, updateChallenges, onAchievement, onDiscovery, getDiscoveries, getAchievements, getWaypointsFound, getTotalWaypoints, getAchievementList } from './challenges.js';
-import { togglePhotoMode, updatePhotoMode, isPhotoModeActive, photoModeMouseMove, photoModeScroll, cycleFilter, takeScreenshot } from './photomode.js';
-import { toggleMeditation, updateMeditation, isMeditationActive } from './meditation.js';
-import { createInteractiveElements, updateInteractive, handleClick, getFlowersInteracted } from './interactive.js';
-import { startCinematic, updateCinematic, isCinematicPlaying, skipCinematic } from './cinematic.js';
-import { updateHUD, togglePause, toggleJournal, showToast, getIsPaused, isJournalOpen, setupPauseMenu, setPauseStatsProvider } from './hud.js';
-import { session, markStrollBegun, markPhotoModeUsed, buildChallengeStats, buildPauseSnapshot } from './game-state.js';
-import { createDog, updateDog } from './dog.js';
-import { initWeapon, updateWeapon, resizeWeapon } from './weapon.js';
-import { createTraffic, updateTraffic } from './traffic.js';
-import { initWeather, updateWeather, toggleWeather } from './weather.js';
-import { startMiniGame, updateMiniGame, endMiniGame, GAMES, getActiveGame } from './minigames.js';
+import { generateNPCs } from './npcs.js';
+import { detectMobile, setupControls, setupMobileControls, setupResize, player } from './controls.js';
+import { setupSoundToggle, playDiscoverySound, playAchievementSound } from './audio.js';
+import { createParticles } from './particles.js';
+import { createCollectibles } from './collectibles.js';
+import { createEnhancedCollectibles } from './enhanced-collectibles.js';
+import { createWildlife } from './wildlife.js';
+import { createChallenges, onAchievement, onDiscovery, getDiscoveries, getAchievements, getWaypointsFound, getTotalWaypoints, getAchievementList } from './challenges.js';
+import { isPhotoModeActive } from './photomode.js';
+import { isMeditationActive } from './meditation.js';
+import { createInteractiveElements } from './interactive.js';
+import { startCinematic } from './cinematic.js';
+import { updateHUD, toggleJournal, showToast, getIsPaused, setupPauseMenu, setPauseStatsProvider } from './hud.js';
+import { session, markStrollBegun, buildPauseSnapshot } from './game-state.js';
+import { createDog } from './dog.js';
+import { initWeapon, resizeWeapon } from './weapon.js';
+import { createTraffic } from './traffic.js';
+import { initWeather } from './weather.js';
+import { setupGameInput, setupJournalTabListeners } from './input.js';
+import { tick } from './game-loop.js';
+import { resolveQuality, applyRendererQuality, getQuality } from './quality.js';
+import { getScore, getCollectedCount, getTotalCollectibles } from './collectibles.js';
+import { getTotalEnhancedCollectibles, getCollectedEnhancedCount } from './enhanced-collectibles.js';
 
-// ── Module-level state ───────────────────────────────────────
 /** @type {THREE.Scene} */
 let scene;
 /** @type {THREE.PerspectiveCamera} */
@@ -53,15 +49,14 @@ let camera;
 let renderer;
 /** @type {EffectComposer} */
 let composer;
+/** @type {import('three/addons/postprocessing/UnrealBloomPass.js').UnrealBloomPass | null} */
+let bloomPass = null;
 /** @type {import('three/addons/postprocessing/ShaderPass.js').ShaderPass | null} */
 let fxaaPass = null;
 /** @type {THREE.Clock} */
 let clock;
-/** Total elapsed time */
 let elapsed = 0;
 let lastPlayerPos = { x: 0, z: 0 };
-
-// ── Initialization ───────────────────────────────────────────
 
 function init() {
     try {
@@ -73,7 +68,8 @@ function init() {
 }
 
 function initCore() {
-    detectMobile();
+    const isMobile = detectMobile();
+    resolveQuality(isMobile);
     setupScene();
 
     if (!scene || !renderer || !composer) {
@@ -81,45 +77,31 @@ function initCore() {
         return;
     }
 
+    applyRendererQuality(renderer);
+    updateUiForFeatureFlags();
+
     setupLighting(scene);
     setupFog(scene);
     setupSkybox(scene);
     setupGround(scene);
 
     updateLoadingProgress(10, 'Generating city...');
-
-    generateCity(scene, (percent) => {
-        updateLoadingProgress(percent, 'Building the world...');
-    });
+    generateCity(scene, (percent) => updateLoadingProgress(percent, 'Building the world...'));
     updateLoadingProgress(50, 'Adding life...');
 
     generateNPCs(scene);
-    updateLoadingProgress(60, 'Scattering treasures...');
-
     createCollectibles(scene);
     createEnhancedCollectibles(scene);
-    updateLoadingProgress(65, 'Adding wildlife...');
-
     createWildlife(scene);
-    updateLoadingProgress(70, 'Placing waypoints...');
-
     createChallenges(scene);
-    updateLoadingProgress(75, 'Growing flowers...');
-
     createInteractiveElements(scene);
-    updateLoadingProgress(80, 'Adding atmosphere...');
-
     createParticles(scene);
-    updateLoadingProgress(83, 'Summoning companion...');
-
     createDog(scene);
-    updateLoadingProgress(86, 'Adding traffic...');
-
     createTraffic(scene);
-    updateLoadingProgress(88, 'Arming up...');
 
-    initWeapon(scene, camera, renderer);
-    updateLoadingProgress(90, 'Adding weather system...');
+    if (FEATURE_WEAPON) {
+        initWeapon(scene, camera, renderer);
+    }
 
     initWeather(scene);
     updateLoadingProgress(92, 'Setting up controls...');
@@ -132,57 +114,58 @@ function initCore() {
     });
     setupSoundToggle();
     setupPauseMenu();
-    setPauseStatsProvider(() => {
-        const totalCollectedNow = getCollectedCount() + getCollectedEnhancedCount();
-        const totalPickupsWorld = getTotalCollectibles() + getTotalEnhancedCollectibles();
-        const achievements = getAchievements();
-        return buildPauseSnapshot({
-            score: getScore(),
-            collected: totalCollectedNow,
-            totalCollectibles: totalPickupsWorld,
-            waypointsFound: getWaypointsFound(),
-            totalWaypoints: getTotalWaypoints(),
-            achievementsUnlocked: achievements.length,
-            achievementsTotal: getAchievementList().length,
-        });
-    });
-    setupJournalTabs();
-    setupExtraKeyBindings();
+    setPauseStatsProvider(() => buildPauseSnapshot({
+        score: getScore(),
+        collected: getCollectedCount() + getCollectedEnhancedCount(),
+        totalCollectibles: getTotalCollectibles() + getTotalEnhancedCollectibles(),
+        waypointsFound: getWaypointsFound(),
+        totalWaypoints: getTotalWaypoints(),
+        achievementsUnlocked: getAchievements().length,
+        achievementsTotal: getAchievementList().length,
+    }));
+    setupJournalTabListeners();
+    setupGameInput({ camera, player, renderer, scene });
     setupLoadingRetry();
 
-    // Achievement & discovery callbacks
     onAchievement((ach) => {
         showToast(ach.icon, 'Achievement Unlocked!', ach.name + ' — ' + ach.desc, 'achievement');
         playAchievementSound();
     });
-
     onDiscovery((name, desc) => {
         showToast('📍', 'Discovery!', name + ' — ' + desc, 'discovery');
         playDiscoverySound();
     });
 
     updateLoadingProgress(95, 'Almost ready...');
-
     scheduleThought();
 
     clock = new THREE.Clock();
     requestAnimationFrame(() => {
         renderer.render(scene, camera);
         hideLoadingScreen();
-
-        startCinematic(() => {
-            markStrollBegun();
-        });
-
+        startCinematic(() => markStrollBegun());
         animate();
     });
 }
 
-// ── Scene Setup ──────────────────────────────────────────────
+function updateUiForFeatureFlags() {
+    const weaponHints = document.querySelectorAll('.weapon-hint');
+    weaponHints.forEach((el) => {
+        el.style.display = FEATURE_WEAPON ? '' : 'none';
+    });
+    const interactHint = document.getElementById('interact-hint');
+    if (interactHint) {
+        interactHint.textContent = 'interact with flowers';
+    }
+
+    const minigameHints = document.querySelectorAll('.minigame-hint');
+    minigameHints.forEach((el) => {
+        el.style.display = FEATURE_MINIGAMES ? '' : 'none';
+    });
+}
 
 function setupScene() {
     scene = new THREE.Scene();
-
     camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 500);
     camera.position.set(0, PLAYER_HEIGHT, 0);
 
@@ -194,9 +177,10 @@ function setupScene() {
     }
 
     try {
+        const q = getQuality();
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        applyRendererQuality(renderer);
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -204,41 +188,33 @@ function setupScene() {
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         document.body.appendChild(renderer.domElement);
 
-        // Post-processing: bloom
         composer = new EffectComposer(renderer);
-        const renderPass = new RenderPass(scene, camera);
-        composer.addPass(renderPass);
+        composer.addPass(new RenderPass(scene, camera));
 
-        const bloomPass = new UnrealBloomPass(
-            new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.4,   // strength (slightly more visible)
-            0.6,   // radius (wider glow)
-            0.8    // threshold (catch more highlights)
-        );
-        composer.addPass(bloomPass);
+        if (q.bloom) {
+            bloomPass = new UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight),
+                0.4, 0.6, 0.8
+            );
+            composer.addPass(bloomPass);
+        }
 
-        // FXAA anti-aliasing pass
-        fxaaPass = new ShaderPass(FXAAShader);
-        const pixelRatio = renderer.getPixelRatio();
-        fxaaPass.material.uniforms['resolution'].value.x = 1 / (window.innerWidth * pixelRatio);
-        fxaaPass.material.uniforms['resolution'].value.y = 1 / (window.innerHeight * pixelRatio);
-        composer.addPass(fxaaPass);
+        if (q.fxaa) {
+            fxaaPass = new ShaderPass(FXAAShader);
+            updateFxaaResolution();
+            composer.addPass(fxaaPass);
+        }
     } catch (err) {
         showError('Failed to initialize WebGL renderer: ' + err.message);
     }
 }
 
-/** Keep FXAA resolution in sync after resize / pixel ratio changes. */
 function updateFxaaResolution() {
     if (!renderer || !fxaaPass?.material?.uniforms?.['resolution']) return;
     const pr = renderer.getPixelRatio();
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    fxaaPass.material.uniforms['resolution'].value.x = 1 / (w * pr);
-    fxaaPass.material.uniforms['resolution'].value.y = 1 / (h * pr);
+    fxaaPass.material.uniforms['resolution'].value.x = 1 / (window.innerWidth * pr);
+    fxaaPass.material.uniforms['resolution'].value.y = 1 / (window.innerHeight * pr);
 }
-
-// ── Loading Screen ───────────────────────────────────────────
 
 function updateLoadingProgress(percent, message) {
     const bar = document.getElementById('loading-bar-fill');
@@ -259,16 +235,13 @@ function setupLoadingRetry() {
     const retry = document.getElementById('loading-retry');
     if (!retry || retry.dataset.bound) return;
     retry.dataset.bound = '1';
-    retry.addEventListener('click', () => {
-        window.location.reload();
-    });
+    retry.addEventListener('click', () => window.location.reload());
 }
 
 function showError(message) {
     const screen = document.getElementById('loading-screen');
     const text = document.getElementById('loading-text');
     const bar = document.getElementById('loading-bar');
-
     if (screen) {
         screen.classList.remove('hidden');
         screen.style.display = 'flex';
@@ -277,8 +250,6 @@ function showError(message) {
     if (text) text.textContent = message;
     if (bar) bar.style.display = 'none';
 }
-
-// ── Thoughts ─────────────────────────────────────────────────
 
 function scheduleThought() {
     const delay = THOUGHT_MIN_DELAY + Math.random() * THOUGHT_EXTRA_DELAY;
@@ -292,143 +263,20 @@ function showThought() {
     const bubble = document.getElementById('thought-bubble');
     if (!bubble) return;
     if (isPhotoModeActive() || isMeditationActive() || getIsPaused()) return;
-    const thought = THOUGHTS[Math.floor(Math.random() * THOUGHTS.length)];
-    bubble.textContent = '"' + thought + '"';
+    bubble.textContent = '"' + THOUGHTS[Math.floor(Math.random() * THOUGHTS.length)] + '"';
     bubble.classList.add('visible');
-    setTimeout(() => { bubble.classList.remove('visible'); }, THOUGHT_DISPLAY_TIME);
+    setTimeout(() => bubble.classList.remove('visible'), THOUGHT_DISPLAY_TIME);
 }
 
-// ── Extra Key Bindings ───────────────────────────────────────
-
-function setupExtraKeyBindings() {
-    document.addEventListener('keydown', (e) => {
-        // Skip cinematic
-        if (isCinematicPlaying()) {
-            skipCinematic();
-            return;
-        }
-
-        // Pause
-        if (e.key === 'Escape') {
-            if (isJournalOpen()) {
-                toggleJournal([], [], []);
-            } else {
-                togglePause();
-            }
-            return;
-        }
-
-        // Don't process other keys when paused or journal open
-        if (getIsPaused() || isJournalOpen()) return;
-
-        // Photo mode
-        if (e.key === 'p' || e.key === 'P') {
-            if (isMeditationActive()) return;
-            const active = togglePhotoMode(camera, player, renderer);
-            if (active) {
-                markPhotoModeUsed();
-                showToast('📸', 'Photo Mode', 'Orbit with mouse, scroll to zoom', 'info');
-            }
-        }
-
-        // Meditation mode
-        if (e.key === 'n' || e.key === 'N') {
-            if (isPhotoModeActive()) return;
-            const active = toggleMeditation(camera, player);
-            if (active) {
-                session.meditated = true;
-                showToast('🧘', 'Meditation', 'Relax and breathe...', 'info');
-            }
-        }
-
-        // Journal
-        if (e.key === 'j' || e.key === 'J') {
-            toggleJournal(getDiscoveries(), getAchievements(), getAchievementList());
-        }
-
-        // Weather toggle
-        if (e.key === 'r' || e.key === 'R') {
-            const enabled = toggleWeather();
-            showToast(enabled ? '🌧️' : '☀️', 'Weather', enabled ? 'Rain starting...' : 'Clearing up...', 'info');
-        }
-
-        // Mini-game triggers
-        if (e.key === 'g' || e.key === 'G') {
-            if (getActiveGame()) {
-                const result = endMiniGame();
-                showToast('🎮', 'Game Over', `Score: ${result.score}`, 'achievement');
-            } else {
-                // Random mini-game
-                const games = Object.values(GAMES);
-                const randomGame = games[Math.floor(Math.random() * games.length)];
-                startMiniGame(randomGame, scene);
-                showToast('🎮', 'Mini-Game', 'Game started!', 'info');
-            }
-        }
-
-        // Photo mode controls
-        if (isPhotoModeActive()) {
-            if (e.key === 'f' || e.key === 'F') {
-                cycleFilter(renderer);
-            }
-            if (e.key === ' ') {
-                takeScreenshot(renderer, scene, camera);
-                session.photosTaken++;
-                showToast('📸', 'Photo Saved!', 'Screenshot downloaded', 'info');
-            }
-        }
+function animate() {
+    requestAnimationFrame(animate);
+    const delta = Math.min(clock.getDelta(), 0.1);
+    elapsed += delta;
+    const result = tick({
+        scene, camera, renderer, composer, delta, elapsed, lastPlayerPos,
     });
-
-    // Photo mode mouse/scroll
-    document.addEventListener('mousemove', (e) => {
-        if (isPhotoModeActive()) {
-            photoModeMouseMove(e.movementX, e.movementY);
-        }
-    });
-
-    document.addEventListener('wheel', (e) => {
-        if (isPhotoModeActive()) {
-            photoModeScroll(e.deltaY);
-        }
-    });
-
-    // Right-click interaction for flowers (left click is now shoot)
-    renderer.domElement.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        if (isPhotoModeActive() || isMeditationActive() || getIsPaused()) return;
-        if (isCinematicPlaying()) return;
-
-        const mouseNDC = {
-            x: (e.clientX / window.innerWidth) * 2 - 1,
-            y: -(e.clientY / window.innerHeight) * 2 + 1
-        };
-        const interacted = handleClick(camera, mouseNDC, scene);
-        if (interacted) {
-            showToast('🌸', 'Bloom!', 'A flower opens for you', 'info');
-        }
-    });
+    lastPlayerPos = result.lastPlayerPos;
 }
-
-// ── Journal Tabs ─────────────────────────────────────────────
-
-function setupJournalTabs() {
-    document.addEventListener('click', (e) => {
-        if (e.target.classList.contains('journal-tab')) {
-            const tab = e.target.dataset.tab;
-            document.querySelectorAll('.journal-tab').forEach(t => t.classList.remove('active'));
-            e.target.classList.add('active');
-
-            document.getElementById('journal-discoveries').style.display = tab === 'discoveries' ? 'block' : 'none';
-            document.getElementById('journal-achievements').style.display = tab === 'achievements' ? 'block' : 'none';
-        }
-
-        if (e.target.id === 'journal-close') {
-            toggleJournal([], [], []);
-        }
-    });
-}
-
-// ── Visibility Handling ──────────────────────────────────────
 
 document.addEventListener('visibilitychange', () => {
     if (clock) {
@@ -437,157 +285,6 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-// ── Animation Loop ───────────────────────────────────────────
-
-function animate() {
-    requestAnimationFrame(animate);
-
-    const delta = Math.min(clock.getDelta(), 0.1);
-    elapsed += delta;
-
-    // Cinematic intro
-    if (isCinematicPlaying()) {
-        updateCinematic(delta, camera);
-        updateDayNight(delta, scene);
-        composer ? composer.render() : renderer.render(scene, camera);
-        return;
-    }
-
-    // Paused
-    if (getIsPaused() || isJournalOpen()) {
-        composer ? composer.render() : renderer.render(scene, camera);
-        return;
-    }
-
-    // Photo mode
-    if (isPhotoModeActive()) {
-        updatePhotoMode(camera);
-        updateDayNight(delta, scene);
-        updateParticles(delta, elapsed, player);
-        composer ? composer.render() : renderer.render(scene, camera);
-        return;
-    }
-
-    // Meditation mode
-    if (isMeditationActive()) {
-        updateMeditation(delta, camera);
-        updateDayNight(delta, scene);
-        updateParticles(delta, elapsed, player);
-        updateWildlife(delta, elapsed, player);
-        composer ? composer.render() : renderer.render(scene, camera);
-        return;
-    }
-
-    // Normal gameplay
-    updatePlayer(delta, camera);
-
-    // Track distance walked
-    const dx = player.x - lastPlayerPos.x;
-    const dz = player.z - lastPlayerPos.z;
-    session.distanceWalked += Math.sqrt(dx * dx + dz * dz);
-    lastPlayerPos = { x: player.x, z: player.z };
-
-    updateNPCs(delta, player);
-    updateDayNight(delta, scene);
-    updateParticles(delta, elapsed, player);
-
-    // Update companion dog
-    updateDog(delta, elapsed, player);
-
-    // Update traffic
-    updateTraffic(delta, player);
-
-    // Update weather system
-    updateWeather(delta, elapsed, player, scene, getAudioContext(), getMasterGain());
-
-    // Update active mini-game
-    if (getActiveGame()) {
-        updateMiniGame(delta, elapsed, player);
-    }
-
-    // Get night amount for systems that need it
-    const nightAmount = getNightAmount();
-    const cycleTime = getCycleTime();
-
-    // Track night seen
-    if (nightAmount > 0.7) session.nightSeen = true;
-
-    // Update audio layers
-    updateAudioTimeOfDay(nightAmount);
-
-    // Update collectibles
-    const collectResult = updateCollectibles(delta, elapsed, player, scene);
-    if (collectResult.justCollected === 'star') session.starsCollected++;
-
-    // Update enhanced collectibles
-    const enhancedCollect = updateEnhancedCollectibles(delta, elapsed, player);
-    if (enhancedCollect.collected) {
-        if (enhancedCollect.value) {
-            addScore(enhancedCollect.value);
-        }
-
-        const audioCtx = getAudioContext();
-        const masterGain = getMasterGain();
-        if (audioCtx && masterGain) {
-            playEnhancedCollectionSound(enhancedCollect.type, audioCtx, masterGain, enhancedCollect.pitch);
-        }
-        
-        let message = '';
-        switch (enhancedCollect.type) {
-            case 'rainbow_gem':
-                message = `Rainbow Gem! +${enhancedCollect.value}`;
-                break;
-            case 'artifact':
-                message = enhancedCollect.lore || 'Ancient Artifact!';
-                break;
-            case 'music_note':
-                message = 'Musical Note! ♪';
-                break;
-            case 'mystery_box':
-                message = `Mystery Box! +${enhancedCollect.value}`;
-                break;
-        }
-        showToast('✨', 'Discovery!', message, 'discovery');
-    }
-
-    // Update wildlife
-    updateWildlife(delta, elapsed, player);
-
-    const totalCollectedNow = getCollectedCount() + getCollectedEnhancedCount();
-    const totalPickupsWorld = getTotalCollectibles() + getTotalEnhancedCollectibles();
-
-    // Update challenges
-    const gameStats = buildChallengeStats({
-        collected: totalCollectedNow,
-        totalCollectibles: totalPickupsWorld,
-        waypointsFound: getWaypointsFound(),
-        flowersInteracted: getFlowersInteracted(),
-    });
-    updateChallenges(delta, elapsed, player, gameStats);
-
-    // Update interactive elements
-    updateInteractive(delta, elapsed, player, nightAmount);
-
-    // Update HUD
-    updateHUD({
-        score: collectResult.score,
-        collected: totalCollectedNow,
-        totalCollectibles: totalPickupsWorld,
-        waypointsFound: getWaypointsFound(),
-        totalWaypoints: getTotalWaypoints(),
-        cycleTime,
-        playerYaw: player.yaw
-    });
-
-    // Render with post-processing
-    composer ? composer.render() : renderer.render(scene, camera);
-
-    // Update and render weapon overlay on top of the scene
-    updateWeapon(delta, elapsed, player, renderer);
-}
-
-// ── Start ────────────────────────────────────────────────────
-// ES modules often load after DOMContentLoaded; handle both cases.
 function startWhenReady() {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init, { once: true });

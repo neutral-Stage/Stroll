@@ -11,7 +11,7 @@
  */
 
 import * as THREE from 'three';
-import { isInsideBuilding } from './city.js';
+import { pickWalkablePositionOrOrigin } from './spawn-utils.js';
 
 /** @type {Array<FlowerData>} */
 const flowers = [];
@@ -47,14 +47,7 @@ export function createInteractiveElements(scene) {
 
 function createFlowers(scene) {
     for (let i = 0; i < FLOWER_COUNT; i++) {
-        let x, z, attempts = 0;
-        do {
-            x = (Math.random() - 0.5) * 80;
-            z = (Math.random() - 0.5) * 80;
-            attempts++;
-        } while (isInsideBuilding(x, z, 2) && attempts < 20);
-
-        if (attempts >= 20) continue;
+        const { x, z } = pickWalkablePositionOrOrigin({ padding: 2, span: 80 });
 
         const group = new THREE.Group();
         const color = FLOWER_COLORS[i % FLOWER_COLORS.length];
@@ -110,14 +103,7 @@ function createFlowers(scene) {
 
 function createGlowPlants(scene) {
     for (let i = 0; i < GLOW_PLANT_COUNT; i++) {
-        let x, z, attempts = 0;
-        do {
-            x = (Math.random() - 0.5) * 100;
-            z = (Math.random() - 0.5) * 100;
-            attempts++;
-        } while (isInsideBuilding(x, z, 2) && attempts < 20);
-
-        if (attempts >= 20) continue;
+        const { x, z } = pickWalkablePositionOrOrigin({ padding: 2, span: 100 });
 
         const group = new THREE.Group();
 

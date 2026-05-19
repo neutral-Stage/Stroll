@@ -11,12 +11,13 @@
 
 import * as THREE from 'three';
 import {
-    NPC_COUNT, NPC_MIN_SPEED, NPC_SPEED_RANGE,
+    NPC_MIN_SPEED, NPC_SPEED_RANGE,
     NPC_PATH_MIN_POINTS, NPC_PATH_EXTRA_POINTS, NPC_PATH_STEP,
     NPC_BOB_SPEED, NPC_BOB_AMOUNT, NPC_CULL_DISTANCE,
     CITY_SIZE, HALF_CITY, NPC_COLORS
 } from './config.js';
 import { isInsideBuilding } from './city.js';
+import { getQuality } from './quality.js';
 
 /** @type {Array<NPCData>} */
 const npcs = [];
@@ -53,7 +54,8 @@ const skinMats = [
  * @param {THREE.Scene} scene
  */
 export function generateNPCs(scene) {
-    for (let i = 0; i < NPC_COUNT; i++) {
+    const count = getQuality().npcCount;
+    for (let i = 0; i < count; i++) {
         createNPC(scene, NPC_COLORS[i % NPC_COLORS.length], i % 3);
     }
 }

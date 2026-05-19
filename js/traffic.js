@@ -8,7 +8,8 @@
  */
 
 import * as THREE from 'three';
-import { CITY_SIZE, HALF_CITY, CELL_SIZE, STREET_WIDTH, BLOCK_SIZE } from './config.js';
+import { CITY_SIZE, HALF_CITY, CELL_SIZE, STREET_WIDTH, BLOCK_SIZE, TRAFFIC_CULL_DISTANCE } from './config.js';
+import { getQuality } from './quality.js';
 
 /** @type {Array<CarData>} */
 const cars = [];
@@ -69,8 +70,15 @@ export function createTraffic(scene) {
  * @param {{x: number, z: number}} playerPos - player position for culling
  */
 export function updateTraffic(delta, playerPos) {
+    const cullDist = getQuality().trafficCullDistance || TRAFFIC_CULL_DISTANCE;
+
     cars.forEach(car => {
         if (!car.mesh) return;
+
+        const dx = car.mesh.position.x - playerPos.x;
+        const dz = car.mesh.position.z - playerPos.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist > cullDist) return;
 
         // Move car along its axis
         if (car.axis === 'x') {
@@ -78,11 +86,6 @@ export function updateTraffic(delta, playerPos) {
         } else {
             car.mesh.position.z += car.speed * car.direction * delta * 60;
         }
-
-        // Check if car is too far from player or out of city bounds
-        const dx = car.mesh.position.x - playerPos.x;
-        const dz = car.mesh.position.z - playerPos.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
 
         if (dist > RESPAWN_DISTANCE || 
             Math.abs(car.mesh.position.x) > HALF_CITY + 20 ||
