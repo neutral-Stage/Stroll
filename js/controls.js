@@ -276,13 +276,8 @@ export function updatePlayer(delta, camera) {
  * Debounced window resize handler.
  * @param {THREE.PerspectiveCamera} camera
  * @param {THREE.WebGLRenderer} renderer
- * @param {EffectComposer} [composer] - optional post-processing composer
- */
-/**
- * @param {THREE.PerspectiveCamera} camera
- * @param {THREE.WebGLRenderer} renderer
  * @param {object} [composer] - EffectComposer instance if post-processing is enabled
- * @param {function(): void} [onResize] - optional callback after size update (e.g. weapon overlay)
+ * @param {function(): void} [onResize] - optional callback after size update (e.g. weapon overlay, FXAA)
  */
 export function setupResize(camera, renderer, composer, onResize) {
     let resizeTimeout;

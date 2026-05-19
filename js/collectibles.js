@@ -239,6 +239,16 @@ function updateParticleBursts(delta, scene) {
     }
 }
 
+/**
+ * Add points from enhanced collectibles or other bonuses (single score source for HUD).
+ * @param {number} points
+ */
+export function addScore(points) {
+    if (typeof points === 'number' && Number.isFinite(points) && points > 0) {
+        score += Math.floor(points);
+    }
+}
+
 export function getScore() { return score; }
 export function getTotalCollectibles() { return totalCollectibles; }
 export function getCollectedCount() { return collectibles.filter(c => c.collected).length; }

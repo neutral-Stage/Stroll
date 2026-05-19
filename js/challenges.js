@@ -48,7 +48,7 @@ const ACHIEVEMENT_LIST = [
     { id: 'first_steps', name: 'First Steps', desc: 'Start your stroll', icon: '👣', condition: () => true },
     { id: 'collector_10', name: 'Curious Collector', desc: 'Collect 10 items', icon: '✨', condition: (stats) => stats.collected >= 10 },
     { id: 'collector_25', name: 'Treasure Hunter', desc: 'Collect 25 items', icon: '💎', condition: (stats) => stats.collected >= 25 },
-    { id: 'collector_all', name: 'Completionist', desc: 'Collect all items', icon: '🏆', condition: (stats) => stats.collected >= stats.totalCollectibles },
+    { id: 'collector_all', name: 'Completionist', desc: 'Collect all treasures (orbs + special finds)', icon: '🏆', condition: (stats) => stats.collected >= stats.totalCollectibles },
     { id: 'explorer_3', name: 'Wanderer', desc: 'Discover 3 waypoints', icon: '🗺️', condition: (stats) => stats.waypointsFound >= 3 },
     { id: 'explorer_all', name: 'Cartographer', desc: 'Discover all waypoints', icon: '🧭', condition: (stats) => stats.waypointsFound >= WAYPOINT_DEFS.length },
     { id: 'night_owl', name: 'Night Owl', desc: 'Experience nighttime', icon: '🦉', condition: (stats) => stats.nightSeen },

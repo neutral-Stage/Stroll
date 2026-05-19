@@ -1,23 +1,15 @@
 /**
  * main.js — Entry point for Stroll: A Peaceful City Walk (Enhanced Edition)
  *
- * This module orchestrates initialization and the render loop.
- * All game systems are imported from dedicated modules:
- *  - config.js       — constants and tunable parameters
- *  - lighting.js     — lights, fog, skybox, ground, day/night cycle
- *  - city.js         — procedural city generation
- *  - npcs.js         — NPC creation and AI updates
- *  - controls.js     — keyboard, mouse, and mobile touch input
- *  - audio.js        — Web Audio ambient soundscape (overhauled)
- *  - particles.js    — atmospheric leaf and firefly particles
- *  - collectibles.js — glowing orbs/crystals with pickup effects
- *  - wildlife.js     — butterflies and birds
- *  - challenges.js   — waypoints, discoveries, achievements
- *  - photomode.js    — photo mode with filters
- *  - meditation.js   — meditation mode with breathing guide
- *  - interactive.js  — clickable flowers, glowing plants, footprints
- *  - cinematic.js    — cinematic intro flyover
- *  - hud.js          — HUD, compass, pause menu, toasts
+ * Orchestrates initialization and the render loop. Feature modules:
+ *
+ *  Scene & world     config, lighting, city, particles, weather
+ *  Life & traffic    npcs, dog, traffic, wildlife
+ *  Player            controls (desktop + mobile), weapon
+ *  Pickups           collectibles, enhanced-collectibles, challenges
+ *  Modes & UI        photomode, meditation, hud, cinematic
+ *  Interaction       interactive (flowers), minigames
+ *  Audio             audio (toggle + soundscape), ambient (after user enables sound)
  *
  * @module main
  */
@@ -36,7 +28,7 @@ import { generateNPCs, updateNPCs } from './npcs.js';
 import { detectMobile, setupControls, setupMobileControls, setupResize, updatePlayer, player } from './controls.js';
 import { setupSoundToggle, updateAudioTimeOfDay, playDiscoverySound, playAchievementSound, getAudioContext, getMasterGain } from './audio.js';
 import { createParticles, updateParticles } from './particles.js';
-import { createCollectibles, updateCollectibles, getScore, getCollectedCount, getTotalCollectibles } from './collectibles.js';
+import { createCollectibles, updateCollectibles, addScore, getCollectedCount, getTotalCollectibles } from './collectibles.js';
 import { createEnhancedCollectibles, updateEnhancedCollectibles, getTotalEnhancedCollectibles, getCollectedEnhancedCount, playEnhancedCollectionSound } from './enhanced-collectibles.js';
 import { createWildlife, updateWildlife } from './wildlife.js';
 import { createChallenges, updateChallenges, onAchievement, onDiscovery, getDiscoveries, getAchievements, getWaypointsFound, getTotalWaypoints, getAchievementList } from './challenges.js';
@@ -48,7 +40,7 @@ import { updateHUD, togglePause, toggleJournal, showToast, getIsPaused, isJourna
 import { createDog, updateDog } from './dog.js';
 import { initWeapon, updateWeapon, resizeWeapon } from './weapon.js';
 import { createTraffic, updateTraffic } from './traffic.js';
-import { initWeather, updateWeather, toggleWeather, isWeatherEnabled } from './weather.js';
+import { initWeather, updateWeather, toggleWeather } from './weather.js';
 import { startMiniGame, updateMiniGame, endMiniGame, GAMES, getActiveGame } from './minigames.js';
 
 // ── Module-level state ───────────────────────────────────────
@@ -60,6 +52,8 @@ let camera;
 let renderer;
 /** @type {EffectComposer} */
 let composer;
+/** @type {import('three/addons/postprocessing/ShaderPass.js').ShaderPass | null} */
+let fxaaPass = null;
 /** @type {THREE.Clock} */
 let clock;
 /** Total elapsed time */
@@ -75,8 +69,6 @@ let photosTaken = 0;
 let meditated = false;
 /** Stars collected */
 let starsCollected = 0;
-/** Cinematic completed */
-let cinematicDone = false;
 
 // ── Initialization ───────────────────────────────────────────
 
@@ -143,7 +135,10 @@ function initCore() {
 
     setupControls(renderer, camera);
     setupMobileControls();
-    setupResize(camera, renderer, composer, resizeWeapon);
+    setupResize(camera, renderer, composer, () => {
+        resizeWeapon();
+        updateFxaaResolution();
+    });
     setupSoundToggle();
     setupPauseMenu();
     setupJournalTabs();
@@ -169,12 +164,8 @@ function initCore() {
         renderer.render(scene, camera);
         hideLoadingScreen();
 
-        // Start cinematic intro
-        startCinematic(() => {
-            cinematicDone = true;
-            // Trigger first steps achievement
-            showToast('👣', 'Achievement Unlocked!', 'First Steps — Start your stroll', 'achievement');
-        });
+        // first_steps achievement is granted on first gameplay frame (challenges.js)
+        startCinematic(() => {});
 
         animate();
     });
@@ -220,7 +211,7 @@ function setupScene() {
         composer.addPass(bloomPass);
 
         // FXAA anti-aliasing pass
-        const fxaaPass = new ShaderPass(FXAAShader);
+        fxaaPass = new ShaderPass(FXAAShader);
         const pixelRatio = renderer.getPixelRatio();
         fxaaPass.material.uniforms['resolution'].value.x = 1 / (window.innerWidth * pixelRatio);
         fxaaPass.material.uniforms['resolution'].value.y = 1 / (window.innerHeight * pixelRatio);
@@ -228,6 +219,16 @@ function setupScene() {
     } catch (err) {
         showError('Failed to initialize WebGL renderer: ' + err.message);
     }
+}
+
+/** Keep FXAA resolution in sync after resize / pixel ratio changes. */
+function updateFxaaResolution() {
+    if (!renderer || !fxaaPass?.material?.uniforms?.['resolution']) return;
+    const pr = renderer.getPixelRatio();
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    fxaaPass.material.uniforms['resolution'].value.x = 1 / (w * pr);
+    fxaaPass.material.uniforms['resolution'].value.y = 1 / (h * pr);
 }
 
 // ── Loading Screen ───────────────────────────────────────────
@@ -498,6 +499,10 @@ function animate() {
     // Update enhanced collectibles
     const enhancedCollect = updateEnhancedCollectibles(delta, elapsed, player);
     if (enhancedCollect.collected) {
+        if (enhancedCollect.value) {
+            addScore(enhancedCollect.value);
+        }
+
         const audioCtx = getAudioContext();
         const masterGain = getMasterGain();
         if (audioCtx && masterGain) {
@@ -525,10 +530,13 @@ function animate() {
     // Update wildlife
     updateWildlife(delta, elapsed, player);
 
+    const totalCollectedNow = getCollectedCount() + getCollectedEnhancedCount();
+    const totalPickupsWorld = getTotalCollectibles() + getTotalEnhancedCollectibles();
+
     // Update challenges
     const gameStats = {
-        collected: getCollectedCount(),
-        totalCollectibles: getTotalCollectibles(),
+        collected: totalCollectedNow,
+        totalCollectibles: totalPickupsWorld,
         waypointsFound: getWaypointsFound(),
         nightSeen,
         photosTaken,
@@ -545,8 +553,8 @@ function animate() {
     // Update HUD
     updateHUD({
         score: collectResult.score,
-        collected: getCollectedCount(),
-        totalCollectibles: getTotalCollectibles(),
+        collected: totalCollectedNow,
+        totalCollectibles: totalPickupsWorld,
         waypointsFound: getWaypointsFound(),
         totalWaypoints: getTotalWaypoints(),
         cycleTime,
