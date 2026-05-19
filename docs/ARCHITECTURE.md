@@ -7,11 +7,15 @@ Vanilla ES modules + Three.js (`r160`) loaded via **import map** in `index.html`
 ```
 /
 ├── index.html          Single page: shells for HUD, overlays, import map
-├── css/style.css       All UI styling (organized by sections with banner comments)
+├── css/
+│   ├── tokens.css      Design tokens (colors, fonts, z-index)
+│   └── style.css       Component styles (@imports tokens)
 ├── docs/
-│   └── ARCHITECTURE.md This file
+│   ├── ARCHITECTURE.md This file
+│   └── PROJECT_PLAN.md Roadmap and definition of done
 └── js/
     ├── main.js         Boot, scene/renderer/composer, game loop glue
+    ├── game-state.js   Session flags + stats builders (HUD / achievements / pause)
     ├── config.js       Tunables — prefer changing values here vs scattered literals
     ├── lighting.js     Sun, shadows, fog, sky, ground, day/night cycle
     ├── city.js         Procedural city + collision helpers (`buildings`, `isInsideBuilding`)
@@ -51,7 +55,8 @@ Vanilla ES modules + Three.js (`r160`) loaded via **import map** in `index.html`
 |--------|--------|
 | Pickup totals for HUD / “Completionist” | `collectibles.js` counts + `enhanced-collectibles.js` counts (summed in `main.js`) |
 | Score HUD | `collectibles.js` internal `score` (base pickups + **`addScore()`** for enhanced) |
-| Achievements | `challenges.js` — stats object built in **`main.js` each frame** |
+| Achievements | `challenges.js` — stats from **`game-state.buildChallengeStats()`** |
+| Pause menu stats | **`hud.updatePauseStats`** via **`setPauseStatsProvider`** in main |
 | Pointer / movement | **`controls.js`** — pointer lock is desktop-only |
 | Ambient layered audio | Created only inside **`audio.js`** `enableSound()` — never pass `null` context into **`ambient.startAmbient`** |
 

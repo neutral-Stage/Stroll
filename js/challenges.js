@@ -45,14 +45,14 @@ const WAYPOINT_DEFS = [
 
 // Achievement definitions
 const ACHIEVEMENT_LIST = [
-    { id: 'first_steps', name: 'First Steps', desc: 'Start your stroll', icon: '👣', condition: () => true },
+    { id: 'first_steps', name: 'First Steps', desc: 'Begin exploring after the intro', icon: '👣', condition: (stats) => stats.strollBegun },
     { id: 'collector_10', name: 'Curious Collector', desc: 'Collect 10 items', icon: '✨', condition: (stats) => stats.collected >= 10 },
     { id: 'collector_25', name: 'Treasure Hunter', desc: 'Collect 25 items', icon: '💎', condition: (stats) => stats.collected >= 25 },
     { id: 'collector_all', name: 'Completionist', desc: 'Collect all treasures (orbs + special finds)', icon: '🏆', condition: (stats) => stats.collected >= stats.totalCollectibles },
     { id: 'explorer_3', name: 'Wanderer', desc: 'Discover 3 waypoints', icon: '🗺️', condition: (stats) => stats.waypointsFound >= 3 },
     { id: 'explorer_all', name: 'Cartographer', desc: 'Discover all waypoints', icon: '🧭', condition: (stats) => stats.waypointsFound >= WAYPOINT_DEFS.length },
     { id: 'night_owl', name: 'Night Owl', desc: 'Experience nighttime', icon: '🦉', condition: (stats) => stats.nightSeen },
-    { id: 'photographer', name: 'Photographer', desc: 'Use photo mode', icon: '📸', condition: (stats) => stats.photosTaken > 0 },
+    { id: 'photographer', name: 'Photographer', desc: 'Use photo mode', icon: '📸', condition: (stats) => stats.usedPhotoMode || stats.photosTaken > 0 },
     { id: 'zen_master', name: 'Zen Master', desc: 'Use meditation mode', icon: '🧘', condition: (stats) => stats.meditated },
     { id: 'flower_power', name: 'Flower Power', desc: 'Interact with 5 flowers', icon: '🌸', condition: (stats) => stats.flowersInteracted >= 5 },
     { id: 'marathon', name: 'Marathon Walker', desc: 'Walk 1000 units', icon: '🏃', condition: (stats) => stats.distanceWalked >= 1000 },

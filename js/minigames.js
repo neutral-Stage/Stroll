@@ -354,21 +354,6 @@ function showGameUI(gameType) {
     if (!ui) {
         ui = document.createElement('div');
         ui.id = 'minigame-ui';
-        ui.style.cssText = `
-            position: fixed;
-            top: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(20, 20, 40, 0.9);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 12px;
-            padding: 20px;
-            color: white;
-            font-family: Georgia, serif;
-            z-index: 50;
-            min-width: 300px;
-            text-align: center;
-        `;
         document.body.appendChild(ui);
     }
 
@@ -382,10 +367,10 @@ function showGameUI(gameType) {
     };
 
     ui.innerHTML = `
-        <div style="font-size: 20px; margin-bottom: 10px;">${titles[gameType]}</div>
-        <div id="game-instructions" style="font-size: 14px; opacity: 0.8; margin-bottom: 10px;"></div>
-        <div id="game-score" style="font-size: 18px; font-weight: bold;">Score: 0</div>
-        <div id="game-progress" style="margin-top: 10px; font-size: 12px; opacity: 0.6;"></div>
+        <div class="minigame-title">${titles[gameType]}</div>
+        <div id="game-instructions" class="minigame-instructions">Press G again to end</div>
+        <div id="game-score" class="minigame-score">Score: 0</div>
+        <div id="game-progress" class="minigame-progress"></div>
     `;
 }
 

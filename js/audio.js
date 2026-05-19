@@ -46,11 +46,19 @@ export function setupSoundToggle() {
     const toggle = document.getElementById('sound-toggle');
     if (!toggle) return;
 
-    toggle.addEventListener('click', () => {
+    const flip = () => {
         if (!soundOn) {
             enableSound(toggle);
         } else {
             disableSound(toggle);
+        }
+    };
+
+    toggle.addEventListener('click', flip);
+    toggle.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            flip();
         }
     });
 }

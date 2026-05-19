@@ -78,6 +78,37 @@ function updateCompass(yaw) {
     }
 }
 
+/** @type {function(): object|null} */
+let pauseStatsProvider = null;
+
+/**
+ * Register a function that returns current stats for the pause menu.
+ * @param {function(): object} provider
+ */
+export function setPauseStatsProvider(provider) {
+    pauseStatsProvider = provider;
+}
+
+/**
+ * @param {object} snapshot
+ */
+export function updatePauseStats(snapshot) {
+    const el = document.getElementById('pause-stats');
+    if (!el || !snapshot) return;
+
+    const row = (label, value) =>
+        `<div class="pause-stat-row"><span class="pause-stat-label">${label}</span><span class="pause-stat-value">${value}</span></div>`;
+
+    el.innerHTML = [
+        row('Score', snapshot.score),
+        row('Treasures', `${snapshot.collected} / ${snapshot.totalCollectibles}`),
+        row('Waypoints', `${snapshot.waypointsFound} / ${snapshot.totalWaypoints}`),
+        row('Distance', `${snapshot.distanceWalked}m`),
+        row('Photos', snapshot.photosTaken),
+        row('Achievements', `${snapshot.achievementsUnlocked} / ${snapshot.achievementsTotal}`),
+    ].join('');
+}
+
 /**
  * Toggle pause menu.
  * @returns {boolean} new paused state
@@ -86,6 +117,9 @@ export function togglePause() {
     isPaused = !isPaused;
     const menu = document.getElementById('pause-menu');
     if (menu) menu.style.display = isPaused ? 'flex' : 'none';
+    if (isPaused && pauseStatsProvider) {
+        updatePauseStats(pauseStatsProvider());
+    }
     return isPaused;
 }
 

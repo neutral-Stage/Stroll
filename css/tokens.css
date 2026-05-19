@@ -1,0 +1,42 @@
+/* ============================================================
+   Stroll — design tokens (colors, type, spacing, z-index)
+   Imported by style.css — change theme values here only.
+   ============================================================ */
+
+:root {
+    /* Background & surfaces */
+    --stroll-bg-deep: #1a1a2e;
+    --stroll-bg-mid: #16213e;
+    --stroll-bg-accent: #0f3460;
+    --stroll-surface: rgba(20, 20, 40, 0.92);
+    --stroll-surface-border: rgba(255, 255, 255, 0.15);
+
+    /* Text */
+    --stroll-text: rgba(255, 248, 230, 0.85);
+    --stroll-text-muted: rgba(255, 248, 230, 0.55);
+    --stroll-text-faint: rgba(255, 248, 230, 0.35);
+
+    /* Accents */
+    --stroll-gold: #fca311;
+    --stroll-gold-light: #ffba49;
+    --stroll-teal: #80deeA;
+    --stroll-error: #ff6b6b;
+
+    /* Typography */
+    --stroll-font-serif: 'Georgia', 'Times New Roman', serif;
+    --stroll-font-mono: 'Courier New', monospace;
+
+    /* Layout */
+    --stroll-radius: 12px;
+    --stroll-radius-sm: 6px;
+    --stroll-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+
+    /* Stacking */
+    --z-canvas: 0;
+    --z-ui: 10;
+    --z-hud: 15;
+    --z-mobile: 20;
+    --z-overlay: 30;
+    --z-minigame: 50;
+    --z-loading: 100;
+}

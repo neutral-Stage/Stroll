@@ -2,6 +2,8 @@
 
 A beautiful, relaxing 3D browser-based experience where you explore a procedurally generated city during golden hour. Now with enhanced graphics, dynamic weather, mini-games, and much more!
 
+**Maintainers:** see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (module map) and [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) (roadmap).
+
 ![Stroll Game](https://img.shields.io/badge/Three.js-0.160.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 

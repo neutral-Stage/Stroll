@@ -28,7 +28,7 @@ import { generateNPCs, updateNPCs } from './npcs.js';
 import { detectMobile, setupControls, setupMobileControls, setupResize, updatePlayer, player } from './controls.js';
 import { setupSoundToggle, updateAudioTimeOfDay, playDiscoverySound, playAchievementSound, getAudioContext, getMasterGain } from './audio.js';
 import { createParticles, updateParticles } from './particles.js';
-import { createCollectibles, updateCollectibles, addScore, getCollectedCount, getTotalCollectibles } from './collectibles.js';
+import { createCollectibles, updateCollectibles, addScore, getScore, getCollectedCount, getTotalCollectibles } from './collectibles.js';
 import { createEnhancedCollectibles, updateEnhancedCollectibles, getTotalEnhancedCollectibles, getCollectedEnhancedCount, playEnhancedCollectionSound } from './enhanced-collectibles.js';
 import { createWildlife, updateWildlife } from './wildlife.js';
 import { createChallenges, updateChallenges, onAchievement, onDiscovery, getDiscoveries, getAchievements, getWaypointsFound, getTotalWaypoints, getAchievementList } from './challenges.js';
@@ -36,7 +36,8 @@ import { togglePhotoMode, updatePhotoMode, isPhotoModeActive, photoModeMouseMove
 import { toggleMeditation, updateMeditation, isMeditationActive } from './meditation.js';
 import { createInteractiveElements, updateInteractive, handleClick, getFlowersInteracted } from './interactive.js';
 import { startCinematic, updateCinematic, isCinematicPlaying, skipCinematic } from './cinematic.js';
-import { updateHUD, togglePause, toggleJournal, showToast, getIsPaused, isJournalOpen, setupPauseMenu } from './hud.js';
+import { updateHUD, togglePause, toggleJournal, showToast, getIsPaused, isJournalOpen, setupPauseMenu, setPauseStatsProvider } from './hud.js';
+import { session, markStrollBegun, markPhotoModeUsed, buildChallengeStats, buildPauseSnapshot } from './game-state.js';
 import { createDog, updateDog } from './dog.js';
 import { initWeapon, updateWeapon, resizeWeapon } from './weapon.js';
 import { createTraffic, updateTraffic } from './traffic.js';
@@ -58,17 +59,7 @@ let fxaaPass = null;
 let clock;
 /** Total elapsed time */
 let elapsed = 0;
-/** Distance walked for achievements */
-let distanceWalked = 0;
 let lastPlayerPos = { x: 0, z: 0 };
-/** Night seen flag */
-let nightSeen = false;
-/** Photos taken */
-let photosTaken = 0;
-/** Meditated flag */
-let meditated = false;
-/** Stars collected */
-let starsCollected = 0;
 
 // ── Initialization ───────────────────────────────────────────
 
@@ -141,6 +132,20 @@ function initCore() {
     });
     setupSoundToggle();
     setupPauseMenu();
+    setPauseStatsProvider(() => {
+        const totalCollectedNow = getCollectedCount() + getCollectedEnhancedCount();
+        const totalPickupsWorld = getTotalCollectibles() + getTotalEnhancedCollectibles();
+        const achievements = getAchievements();
+        return buildPauseSnapshot({
+            score: getScore(),
+            collected: totalCollectedNow,
+            totalCollectibles: totalPickupsWorld,
+            waypointsFound: getWaypointsFound(),
+            totalWaypoints: getTotalWaypoints(),
+            achievementsUnlocked: achievements.length,
+            achievementsTotal: getAchievementList().length,
+        });
+    });
     setupJournalTabs();
     setupExtraKeyBindings();
 
@@ -164,8 +169,9 @@ function initCore() {
         renderer.render(scene, camera);
         hideLoadingScreen();
 
-        // first_steps achievement is granted on first gameplay frame (challenges.js)
-        startCinematic(() => {});
+        startCinematic(() => {
+            markStrollBegun();
+        });
 
         animate();
     });
@@ -304,6 +310,7 @@ function setupExtraKeyBindings() {
             if (isMeditationActive()) return;
             const active = togglePhotoMode(camera, player, renderer);
             if (active) {
+                markPhotoModeUsed();
                 showToast('📸', 'Photo Mode', 'Orbit with mouse, scroll to zoom', 'info');
             }
         }
@@ -313,7 +320,7 @@ function setupExtraKeyBindings() {
             if (isPhotoModeActive()) return;
             const active = toggleMeditation(camera, player);
             if (active) {
-                meditated = true;
+                session.meditated = true;
                 showToast('🧘', 'Meditation', 'Relax and breathe...', 'info');
             }
         }
@@ -350,7 +357,7 @@ function setupExtraKeyBindings() {
             }
             if (e.key === ' ') {
                 takeScreenshot(renderer, scene, camera);
-                photosTaken++;
+                session.photosTaken++;
                 showToast('📸', 'Photo Saved!', 'Screenshot downloaded', 'info');
             }
         }
@@ -461,7 +468,7 @@ function animate() {
     // Track distance walked
     const dx = player.x - lastPlayerPos.x;
     const dz = player.z - lastPlayerPos.z;
-    distanceWalked += Math.sqrt(dx * dx + dz * dz);
+    session.distanceWalked += Math.sqrt(dx * dx + dz * dz);
     lastPlayerPos = { x: player.x, z: player.z };
 
     updateNPCs(delta, player);
@@ -487,14 +494,14 @@ function animate() {
     const cycleTime = getCycleTime();
 
     // Track night seen
-    if (nightAmount > 0.7) nightSeen = true;
+    if (nightAmount > 0.7) session.nightSeen = true;
 
     // Update audio layers
     updateAudioTimeOfDay(nightAmount);
 
     // Update collectibles
     const collectResult = updateCollectibles(delta, elapsed, player, scene);
-    if (collectResult.justCollected === 'star') starsCollected++;
+    if (collectResult.justCollected === 'star') session.starsCollected++;
 
     // Update enhanced collectibles
     const enhancedCollect = updateEnhancedCollectibles(delta, elapsed, player);
@@ -534,17 +541,12 @@ function animate() {
     const totalPickupsWorld = getTotalCollectibles() + getTotalEnhancedCollectibles();
 
     // Update challenges
-    const gameStats = {
+    const gameStats = buildChallengeStats({
         collected: totalCollectedNow,
         totalCollectibles: totalPickupsWorld,
         waypointsFound: getWaypointsFound(),
-        nightSeen,
-        photosTaken,
-        meditated,
         flowersInteracted: getFlowersInteracted(),
-        distanceWalked,
-        starsCollected
-    };
+    });
     updateChallenges(delta, elapsed, player, gameStats);
 
     // Update interactive elements
