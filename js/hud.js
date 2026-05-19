@@ -1,15 +1,11 @@
 /**
  * hud.js — HUD, compass, pause menu, achievements, toast notifications
  *
- * Features:
- *  • Minimal HUD showing score, discoveries, time of day
- *  • Compass showing cardinal directions
- *  • Pause menu with settings
- *  • Achievement toast notifications
- *  • Discovery journal overlay
- *
  * @module hud
  */
+
+import { activateFocusTrap, deactivateFocusTrap } from './focus-trap.js';
+import { prefersReducedMotion } from './accessibility.js';
 
 /** @type {boolean} */
 let isPaused = false;
@@ -116,10 +112,22 @@ export function updatePauseStats(snapshot) {
 export function togglePause() {
     isPaused = !isPaused;
     const menu = document.getElementById('pause-menu');
-    if (menu) menu.style.display = isPaused ? 'flex' : 'none';
-    if (isPaused && pauseStatsProvider) {
-        updatePauseStats(pauseStatsProvider());
+    const pauseContent = document.getElementById('pause-content');
+
+    if (menu) {
+        menu.classList.toggle('is-open', isPaused);
+        menu.setAttribute('aria-hidden', isPaused ? 'false' : 'true');
     }
+
+    if (isPaused) {
+        if (pauseStatsProvider) {
+            updatePauseStats(pauseStatsProvider());
+        }
+        if (pauseContent) activateFocusTrap(pauseContent);
+    } else {
+        deactivateFocusTrap();
+    }
+
     return isPaused;
 }
 
@@ -132,10 +140,12 @@ export function togglePause() {
 export function toggleJournal(discoveries, achievements, achievementList) {
     journalOpen = !journalOpen;
     const journal = document.getElementById('journal-overlay');
+    const journalContent = document.getElementById('journal-content');
     if (!journal) return;
 
     if (journalOpen) {
-        journal.style.display = 'flex';
+        journal.classList.add('is-open');
+        journal.setAttribute('aria-hidden', 'false');
 
         // Populate discoveries
         const discList = document.getElementById('journal-discoveries');
@@ -157,8 +167,16 @@ export function toggleJournal(discoveries, achievements, achievementList) {
                 </div>`;
             }).join('');
         }
+
+        if (journalContent) activateFocusTrap(journalContent);
     } else {
-        journal.style.display = 'none';
+        journal.classList.remove('is-open');
+        journal.setAttribute('aria-hidden', 'true');
+        deactivateFocusTrap();
+        if (isPaused) {
+            const pauseContent = document.getElementById('pause-content');
+            if (pauseContent) activateFocusTrap(pauseContent);
+        }
     }
 
     return journalOpen;
@@ -199,20 +217,22 @@ function processToastQueue() {
 
     container.appendChild(el);
 
-    // Animate in
+    const reduced = prefersReducedMotion();
+    const showMs = reduced ? 0 : 0;
+    const visibleMs = reduced ? 2200 : 3000;
+    const hideMs = reduced ? 0 : 500;
+
     requestAnimationFrame(() => {
         el.classList.add('toast-show');
     });
 
-    // Remove after delay
     setTimeout(() => {
-        el.classList.remove('toast-show');
-        el.classList.add('toast-hide');
+        if (!reduced) el.classList.add('toast-hide');
         setTimeout(() => {
             el.remove();
             processToastQueue();
-        }, 500);
-    }, 3000);
+        }, hideMs);
+    }, visibleMs + showMs);
 }
 
 export function getIsPaused() { return isPaused; }

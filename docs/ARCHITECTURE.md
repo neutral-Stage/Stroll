@@ -8,14 +8,20 @@ Vanilla ES modules + Three.js (`r160`) loaded via **import map** in `index.html`
 /
 ├── index.html          Single page: shells for HUD, overlays, import map
 ├── css/
-│   ├── tokens.css      Design tokens (colors, fonts, z-index)
-│   └── style.css       Component styles (@imports tokens)
+│   ├── tokens.css          Design tokens (colors, fonts, z-index)
+│   ├── base.css            Reset, shell UI, mobile, keyframes
+│   ├── hud.css             HUD, compass, toasts
+│   ├── overlays.css        Pause, journal, loading, modes, minigames
+│   ├── reduced-motion.css  prefers-reduced-motion overrides
+│   └── style.css           Entry (@imports partials in order)
 ├── docs/
 │   ├── ARCHITECTURE.md This file
 │   └── PROJECT_PLAN.md Roadmap and definition of done
 └── js/
     ├── main.js         Boot, scene/renderer/composer, game loop glue
     ├── game-state.js   Session flags + stats builders (HUD / achievements / pause)
+    ├── focus-trap.js   Keyboard focus for pause / journal modals
+    ├── accessibility.js prefers-reduced-motion helper
     ├── config.js       Tunables — prefer changing values here vs scattered literals
     ├── lighting.js     Sun, shadows, fog, sky, ground, day/night cycle
     ├── city.js         Procedural city + collision helpers (`buildings`, `isInsideBuilding`)

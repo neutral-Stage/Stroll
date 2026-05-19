@@ -148,6 +148,7 @@ function initCore() {
     });
     setupJournalTabs();
     setupExtraKeyBindings();
+    setupLoadingRetry();
 
     // Achievement & discovery callbacks
     onAchievement((ach) => {
@@ -254,12 +255,27 @@ function hideLoadingScreen() {
     }
 }
 
+function setupLoadingRetry() {
+    const retry = document.getElementById('loading-retry');
+    if (!retry || retry.dataset.bound) return;
+    retry.dataset.bound = '1';
+    retry.addEventListener('click', () => {
+        window.location.reload();
+    });
+}
+
 function showError(message) {
+    const screen = document.getElementById('loading-screen');
     const text = document.getElementById('loading-text');
-    if (text) {
-        text.textContent = message;
-        text.style.color = '#ff6b6b';
+    const bar = document.getElementById('loading-bar');
+
+    if (screen) {
+        screen.classList.remove('hidden');
+        screen.style.display = 'flex';
+        screen.classList.add('is-error');
     }
+    if (text) text.textContent = message;
+    if (bar) bar.style.display = 'none';
 }
 
 // ── Thoughts ─────────────────────────────────────────────────

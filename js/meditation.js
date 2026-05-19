@@ -11,6 +11,7 @@
  */
 
 import * as THREE from 'three';
+import { prefersReducedMotion } from './accessibility.js';
 
 let isActive = false;
 let meditationTime = 0;
@@ -106,9 +107,14 @@ function updateBreathingGuide(time) {
 
     if (text) text.textContent = breatheIn ? 'Breathe in...' : 'Breathe out...';
     if (circle) {
-        const scale = 0.6 + progress * 0.4;
-        circle.style.transform = `scale(${scale})`;
-        circle.style.opacity = 0.3 + progress * 0.4;
+        if (prefersReducedMotion()) {
+            circle.style.transform = 'scale(1)';
+            circle.style.opacity = '0.45';
+        } else {
+            const scale = 0.6 + progress * 0.4;
+            circle.style.transform = `scale(${scale})`;
+            circle.style.opacity = 0.3 + progress * 0.4;
+        }
     }
 }
 

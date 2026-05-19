@@ -31,7 +31,7 @@
             <br><span class="key">Click</span> to start
         </div>
         <div id="thought-bubble"></div>
-        <div id="sound-toggle" role="button" aria-label="Toggle ambient sound" tabindex="0" title="Toggle ambient sound (M)">🔇</div>
+        <button type="button" id="sound-toggle" aria-label="Toggle ambient sound" title="Toggle ambient sound (M)">🔇</button>
         <!-- Crosshair for orientation -->
         <div id="crosshair"></div>
     </div>
@@ -97,7 +97,7 @@
     </div>
 
     <!-- Pause Menu -->
-    <div id="pause-menu" style="display:none;">
+    <div id="pause-menu" role="dialog" aria-modal="true" aria-labelledby="pause-title" aria-hidden="true">
         <div id="pause-content">
             <div id="pause-title">⏸ Paused</div>
             <button id="pause-resume" class="pause-btn">Resume</button>
@@ -115,10 +115,10 @@
     </div>
 
     <!-- Discovery Journal -->
-    <div id="journal-overlay" style="display:none;">
+    <div id="journal-overlay" role="dialog" aria-modal="true" aria-labelledby="journal-heading" aria-hidden="true">
         <div id="journal-content">
             <div id="journal-header">
-                <span>📖 Discovery Journal</span>
+                <span id="journal-heading">📖 Discovery Journal</span>
                 <button id="journal-close" class="journal-btn">✕</button>
             </div>
             <div id="journal-tabs">
@@ -138,6 +138,7 @@
             <div id="loading-bar">
                 <div id="loading-bar-fill"></div>
             </div>
+            <button type="button" id="loading-retry" class="loading-retry">Try again</button>
         </div>
     </div>
 

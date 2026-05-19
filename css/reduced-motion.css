@@ -1,0 +1,45 @@
+/* ============================================================
+   Stroll — prefers-reduced-motion overrides
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    #cinematic-skip,
+    #loading-text {
+        animation: none !important;
+    }
+
+    #thought-bubble,
+    #crosshair,
+    #hud,
+    #compass-needle,
+    #joystick-thumb,
+    #loading-screen,
+    #cinematic-overlay,
+    #cinematic-title,
+    #cinematic-subtitle {
+        transition: none !important;
+    }
+
+    .toast {
+        transform: none !important;
+        transition: opacity 0.15s linear !important;
+    }
+
+    .toast-show,
+    .toast-hide {
+        transform: none !important;
+    }
+
+    #breathing-circle {
+        transition: none !important;
+    }
+}

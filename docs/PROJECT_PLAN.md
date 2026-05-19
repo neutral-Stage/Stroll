@@ -28,13 +28,13 @@ See **[ARCHITECTURE.md](./ARCHITECTURE.md)** for module map and runtime flow.
 - [x] Pause menu live stats
 - [x] CSS design tokens
 
-## Phase 2 — Frontend polish (next)
+## Phase 2 — Frontend polish ✅
 
-- [ ] Split `style.css` into `base.css`, `hud.css`, `overlays.css` (keep tokens)
-- [ ] Reduce inline styles in `minigames.js` (use `.minigame-panel` classes)
-- [ ] Focus trap in journal / pause for keyboard users
-- [ ] `prefers-reduced-motion` for breathing guide & toasts
-- [ ] Loading / error states with retry button when WebGL fails
+- [x] Split `style.css` into `base.css`, `hud.css`, `overlays.css`, `reduced-motion.css` (keep `tokens.css`)
+- [x] Mini-game UI uses `#minigame-ui` CSS classes (no inline panel styles)
+- [x] Focus trap in journal / pause (`focus-trap.js`)
+- [x] `prefers-reduced-motion` for breathing guide & toasts (`accessibility.js` + CSS)
+- [x] Loading error state with **Try again** (reload) when WebGL fails
 
 ## Phase 3 — Gameplay fit & performance
 

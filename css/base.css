@@ -1,0 +1,209 @@
+/* ============================================================
+   Stroll — base layout, shell UI, mobile, global utilities
+   ============================================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    background: var(--stroll-bg-deep);
+    font-family: var(--stroll-font-serif);
+    cursor: crosshair;
+}
+
+canvas {
+    display: block;
+}
+
+/* ── UI Overlay ─────────────────────────────────────────────── */
+
+#ui-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: var(--z-ui);
+}
+
+#title {
+    position: absolute;
+    top: 24px;
+    left: 32px;
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--stroll-text);
+    text-shadow: var(--stroll-shadow);
+    letter-spacing: 4px;
+    text-transform: lowercase;
+}
+
+#subtitle {
+    position: absolute;
+    top: 56px;
+    left: 34px;
+    font-size: 12px;
+    color: var(--stroll-text-muted);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    letter-spacing: 2px;
+    font-style: italic;
+}
+
+#controls-hint {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    color: var(--stroll-text-muted);
+    font-size: 13px;
+    line-height: 1.8;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    transition: opacity 1.5s ease;
+}
+
+#controls-hint .key,
+.key {
+    background: rgba(255, 255, 255, 0.12);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: var(--stroll-font-mono);
+    font-size: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* ── Thought Bubble ─────────────────────────────────────────── */
+
+#thought-bubble {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    color: rgba(255, 248, 230, 0.75);
+    font-size: 16px;
+    font-style: italic;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transition: opacity 2s ease;
+    max-width: 400px;
+}
+
+#thought-bubble.visible {
+    opacity: 1;
+}
+
+/* ── Sound Toggle ───────────────────────────────────────────── */
+
+#sound-toggle {
+    position: absolute;
+    top: 24px;
+    right: 32px;
+    font-size: 24px;
+    cursor: pointer;
+    pointer-events: all;
+    opacity: 0.6;
+    transition: opacity 0.3s ease;
+    user-select: none;
+    border: none;
+    background: transparent;
+    padding: 4px;
+    border-radius: var(--stroll-radius-sm);
+}
+
+#sound-toggle:hover,
+#sound-toggle:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--stroll-gold);
+    outline-offset: 2px;
+}
+
+/* ── Crosshair ──────────────────────────────────────────────── */
+
+#crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    margin: -2px 0 0 -2px;
+    background: rgba(255, 248, 230, 0.3);
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+body.playing #crosshair {
+    opacity: 1;
+}
+
+/* ── Playing State ──────────────────────────────────────────── */
+
+body.playing {
+    cursor: none;
+}
+
+/* ── Mobile Controls ────────────────────────────────────────── */
+
+#mobile-controls {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 200px;
+    z-index: var(--z-mobile);
+    pointer-events: none;
+}
+
+#joystick-area {
+    position: absolute;
+    bottom: 40px;
+    left: 40px;
+    pointer-events: all;
+}
+
+#joystick-base {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#joystick-thumb {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    position: absolute;
+    transition: transform 0.1s ease;
+}
+
+@media (max-width: 768px), (hover: none) {
+    #mobile-controls {
+        display: block;
+    }
+    #controls-hint {
+        display: none;
+    }
+    #hud-left, #hud-right {
+        margin-top: 50px;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
