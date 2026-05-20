@@ -139,27 +139,25 @@ export function updateDog(delta, elapsed, playerPos) {
     const dz = playerPos.z - dogPos.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
 
-    // Follow player if too far away (> 4 units)
-    if (dist > 4) {
-        // Move toward player but stop at ~2.5 units
-        const targetDist = 2.5;
+    if (dist > 5) {
+        const targetDist = 3;
         const angle = Math.atan2(dz, dx);
         dogTargetPos.x = playerPos.x - Math.cos(angle) * targetDist;
         dogTargetPos.z = playerPos.z - Math.sin(angle) * targetDist;
         dogIsMoving = true;
     } else if (dist < 2) {
-        // Too close, back off slightly
-        const targetDist = 2.5;
+        const targetDist = 3;
         const angle = Math.atan2(dz, dx);
         dogTargetPos.x = playerPos.x - Math.cos(angle) * targetDist;
         dogTargetPos.z = playerPos.z - Math.sin(angle) * targetDist;
         dogIsMoving = true;
     } else {
         dogIsMoving = false;
+        dogTargetPos.x = dogPos.x;
+        dogTargetPos.z = dogPos.z;
     }
 
-    // Smooth movement toward target
-    const moveSpeed = 3.0 * delta;
+    const moveSpeed = 2.0 * delta;
     const tdx = dogTargetPos.x - dogPos.x;
     const tdz = dogTargetPos.z - dogPos.z;
     const tDist = Math.sqrt(tdx * tdx + tdz * tdz);

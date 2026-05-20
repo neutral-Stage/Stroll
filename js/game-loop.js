@@ -7,6 +7,7 @@
 import { updatePlayer, player } from './controls.js';
 import { updateNPCs } from './npcs.js';
 import { updateDayNight, getCycleTime, getNightAmount } from './lighting.js';
+import { updateCityLighting } from './city.js';
 import { updateParticles } from './particles.js';
 import { updateDog } from './dog.js';
 import { updateTraffic } from './traffic.js';
@@ -45,7 +46,7 @@ export function tick(ctx) {
 
     if (isCinematicPlaying()) {
         updateCinematic(delta, camera);
-        updateDayNight(delta, scene);
+        updateDayNight(delta, scene, player);
         composer.render();
         return { lastPlayerPos };
     }
@@ -57,7 +58,7 @@ export function tick(ctx) {
 
     if (isPhotoModeActive()) {
         updatePhotoMode(camera);
-        updateDayNight(delta, scene);
+        updateDayNight(delta, scene, player);
         updateParticles(delta, elapsed, player);
         composer.render();
         return { lastPlayerPos };
@@ -65,7 +66,7 @@ export function tick(ctx) {
 
     if (isMeditationActive()) {
         updateMeditation(delta, camera);
-        updateDayNight(delta, scene);
+        updateDayNight(delta, scene, player);
         updateParticles(delta, elapsed, player);
         updateWildlife(delta, elapsed, player);
         composer.render();
@@ -80,7 +81,9 @@ export function tick(ctx) {
     lastPlayerPos = { x: player.x, z: player.z };
 
     updateNPCs(delta, player);
-    updateDayNight(delta, scene);
+    updateDayNight(delta, scene, player);
+    const nightAmount = getNightAmount();
+    updateCityLighting(nightAmount);
     updateParticles(delta, elapsed, player);
     updateDog(delta, elapsed, player);
     updateTraffic(delta, player);
@@ -90,9 +93,11 @@ export function tick(ctx) {
         updateMiniGame(delta, elapsed, player, scene);
     }
 
-    const nightAmount = getNightAmount();
     const cycleTime = getCycleTime();
     if (nightAmount > 0.7) session.nightSeen = true;
+
+    const targetExposure = 0.88 - nightAmount * 0.22;
+    renderer.toneMappingExposure += (targetExposure - renderer.toneMappingExposure) * Math.min(1, delta * 0.5);
     updateAudioTimeOfDay(nightAmount);
 
     const collectResult = updateCollectibles(delta, elapsed, player, scene);

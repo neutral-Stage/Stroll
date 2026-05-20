@@ -24,23 +24,27 @@ export const TRAFFIC_CULL_DISTANCE = 90;
 export const WILDLIFE_CULL_DISTANCE = 70;
 
 // ── Player ───────────────────────────────────────────────────
-export const WALK_SPEED = 0.04;
+export const WALK_SPEED = 0.03;
 export const LOOK_SPEED = 0.002;
 export const TOUCH_LOOK_SPEED = 0.005;
 export const PLAYER_HEIGHT = 3.5;
-export const COLLISION_PADDING = 1.5;
+export const COLLISION_PADDING = 0.9;
 export const CITY_BOUND_MARGIN = 2;
-export const HEAD_BOB_SPEED = 0.005;
-export const HEAD_BOB_AMOUNT = 0.04;
+export const HEAD_BOB_SPEED = 8;
+export const HEAD_BOB_AMOUNT = 0.05;
 export const HEAD_BOB_THRESHOLD = 0.1;
 
-// ── NPCs ─────────────────────────────────────────────────────
+// ── NPCs (speeds in world units per second) ──────────────────
 export const NPC_COUNT = 25;
-export const NPC_MIN_SPEED = 0.015;
-export const NPC_SPEED_RANGE = 0.015;
+export const NPC_WALK_SPEED_MIN = 1.0;
+export const NPC_WALK_SPEED_MAX = 1.5;
+/** @deprecated use NPC_WALK_SPEED_MIN/MAX */
+export const NPC_MIN_SPEED = NPC_WALK_SPEED_MIN;
+export const NPC_SPEED_RANGE = NPC_WALK_SPEED_MAX - NPC_WALK_SPEED_MIN;
 export const NPC_PATH_MIN_POINTS = 4;
 export const NPC_PATH_EXTRA_POINTS = 6;
-export const NPC_PATH_STEP = 40;
+export const NPC_PATH_STEP = 10;
+export const NPC_MIN_SEGMENT_LEN = 2;
 export const NPC_BOB_SPEED = 8;
 export const NPC_BOB_AMOUNT = 0.08;
 export const NPC_CULL_DISTANCE = 80; // only update NPCs within this radius

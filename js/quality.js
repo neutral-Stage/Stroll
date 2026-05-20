@@ -50,7 +50,7 @@ export function resolveQuality(isMobile, force) {
     if (force && QUALITY_PRESETS[force]) {
         activeLevel = force;
     } else {
-        activeLevel = isMobile ? 'low' : 'medium';
+        activeLevel = isMobile ? 'low' : 'high';
     }
     return getQuality();
 }

@@ -2,6 +2,17 @@
 
 Default build: `FEATURE_WEAPON = false`, `FEATURE_MINIGAMES = true` in `config.js`.
 
+## Movement tuning (units per second)
+
+| Entity | Speed |
+|--------|-------|
+| Player | ~1.8 |
+| NPCs | 1.0–1.5 |
+| Traffic | ~1.2–2.2 |
+| Dog | ~2.0 |
+
+NPCs use distance-based pathing (no segment sprinting). Traffic respawns off-screen, not beside the player.
+
 ## Controls
 
 | Key | Action |

@@ -178,7 +178,11 @@ function setupScene() {
 
     try {
         const q = getQuality();
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+        renderer = new THREE.WebGLRenderer({
+            antialias: !q.fxaa,
+            alpha: false,
+            preserveDrawingBuffer: true,
+        });
         renderer.setSize(window.innerWidth, window.innerHeight);
         applyRendererQuality(renderer);
         renderer.shadowMap.enabled = true;

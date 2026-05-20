@@ -1,11 +1,5 @@
 /**
- * wildlife.js — Butterflies and birds with simple wandering AI
- *
- * Features:
- *  • Butterflies with fluttering wing animation near flowers/park
- *  • Birds that circle overhead and occasionally swoop
- *  • Simple wandering behavior with smooth movement
- *
+ * wildlife.js — Butterflies and birds (local, gentle motion)
  * @module wildlife
  */
 
@@ -21,13 +15,8 @@ const butterflies = [];
 /** @type {Array<BirdData>} */
 const birds = [];
 
-// Butterfly colors
 const BUTTERFLY_COLORS = [0xFF6B9D, 0xC084FC, 0x67E8F9, 0xFDE047, 0xFB923C, 0xA3E635];
 
-/**
- * Create all wildlife and add to scene.
- * @param {THREE.Scene} scene
- */
 export function createWildlife(scene) {
     createButterflies(scene);
     createBirds(scene);
@@ -43,33 +32,28 @@ function createButterflies(scene) {
             color,
             transparent: true,
             opacity: 0.8,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
         });
 
-        // Left wing
         const leftWing = new THREE.Mesh(wingGeo, wingMat);
         leftWing.position.x = -0.12;
         group.add(leftWing);
 
-        // Right wing
         const rightWing = new THREE.Mesh(wingGeo, wingMat);
         rightWing.position.x = 0.12;
         group.add(rightWing);
 
-        // Body
         const bodyGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.2, 4);
-        const bodyMat = new THREE.MeshBasicMaterial({ color: 0x333333 });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        const body = new THREE.Mesh(bodyGeo, new THREE.MeshBasicMaterial({ color: 0x333333 }));
         body.rotation.z = Math.PI / 2;
         group.add(body);
 
-        // Position near park area or randomly
         const angle = Math.random() * Math.PI * 2;
-        const radius = 5 + Math.random() * 30;
+        const radius = 5 + Math.random() * 20;
         group.position.set(
             Math.cos(angle) * radius,
-            1.5 + Math.random() * 3,
-            Math.sin(angle) * radius
+            1.5 + Math.random() * 2,
+            Math.sin(angle) * radius,
         );
 
         scene.add(group);
@@ -80,11 +64,12 @@ function createButterflies(scene) {
             rightWing,
             phase: Math.random() * Math.PI * 2,
             wanderAngle: Math.random() * Math.PI * 2,
+            targetAngle: Math.random() * Math.PI * 2,
             wanderTimer: 0,
-            wanderDuration: 2 + Math.random() * 4,
-            speed: 0.5 + Math.random() * 1.0,
+            wanderDuration: 3 + Math.random() * 4,
+            speed: 0.35 + Math.random() * 0.4,
             baseY: group.position.y,
-            wingSpeed: 8 + Math.random() * 6
+            wingSpeed: 8 + Math.random() * 4,
         });
     }
 }
@@ -93,19 +78,15 @@ function createBirds(scene) {
     for (let i = 0; i < BIRD_COUNT; i++) {
         const group = new THREE.Group();
 
-        // Simple bird shape
-        const bodyGeo = new THREE.ConeGeometry(0.15, 0.5, 4);
-        const bodyMat = new THREE.MeshLambertMaterial({ color: 0x5D4037 });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        const body = new THREE.Mesh(
+            new THREE.ConeGeometry(0.15, 0.5, 4),
+            new THREE.MeshLambertMaterial({ color: 0x5D4037 }),
+        );
         body.rotation.z = Math.PI / 2;
         group.add(body);
 
-        // Wings
         const wingGeo = new THREE.PlaneGeometry(0.8, 0.2);
-        const wingMat = new THREE.MeshLambertMaterial({
-            color: 0x795548,
-            side: THREE.DoubleSide
-        });
+        const wingMat = new THREE.MeshLambertMaterial({ color: 0x795548, side: THREE.DoubleSide });
 
         const leftWing = new THREE.Mesh(wingGeo, wingMat);
         leftWing.position.set(0, 0.1, -0.3);
@@ -117,14 +98,10 @@ function createBirds(scene) {
         rightWing.rotation.x = -0.2;
         group.add(rightWing);
 
-        // Position high up
+        const radius = 12 + Math.random() * 13;
         const angle = Math.random() * Math.PI * 2;
-        const radius = 20 + Math.random() * 50;
-        group.position.set(
-            Math.cos(angle) * radius,
-            15 + Math.random() * 20,
-            Math.sin(angle) * radius
-        );
+
+        group.position.set(0, 14 + Math.random() * 8, 0);
 
         scene.add(group);
 
@@ -134,78 +111,82 @@ function createBirds(scene) {
             rightWing,
             circleAngle: angle,
             circleRadius: radius,
-            circleSpeed: 0.1 + Math.random() * 0.15,
+            circleSpeed: 0.06 + Math.random() * 0.06,
+            centerX: 0,
+            centerZ: 0,
             baseY: group.position.y,
             phase: Math.random() * Math.PI * 2,
-            wingSpeed: 3 + Math.random() * 2
+            wingSpeed: 3 + Math.random() * 1.5,
         });
     }
 }
 
-/**
- * Update all wildlife each frame.
- * @param {number} delta
- * @param {number} elapsed
- * @param {{x:number, z:number}} playerPos
- */
 export function updateWildlife(delta, elapsed, playerPos) {
     const cullDist = getQuality().wildlifeCullDistance || WILDLIFE_CULL_DISTANCE;
-
     for (const b of butterflies) {
         const bdx = b.mesh.position.x - playerPos.x;
         const bdz = b.mesh.position.z - playerPos.z;
-        if (Math.sqrt(bdx * bdx + bdz * bdz) > cullDist) continue;
-        b.phase += delta * b.wingSpeed;
+        const dist = Math.sqrt(bdx * bdx + bdz * bdz);
 
-        // Wing flapping
+        if (dist > cullDist) {
+            b.mesh.visible = false;
+            continue;
+        }
+        b.mesh.visible = true;
+
+        b.phase += delta * b.wingSpeed;
         const wingAngle = Math.sin(b.phase) * 0.8;
         b.leftWing.rotation.y = wingAngle;
         b.rightWing.rotation.y = -wingAngle;
 
-        // Wandering
         b.wanderTimer += delta;
         if (b.wanderTimer > b.wanderDuration) {
             b.wanderTimer = 0;
-            b.wanderDuration = 2 + Math.random() * 4;
-            b.wanderAngle += (Math.random() - 0.5) * Math.PI;
+            b.wanderDuration = 3 + Math.random() * 4;
+            b.targetAngle = b.wanderAngle + (Math.random() - 0.5) * 0.8;
         }
 
-        // Move
+        if (dist > 35) {
+            const steer = Math.atan2(playerPos.z - b.mesh.position.z, playerPos.x - b.mesh.position.x);
+            b.targetAngle += (steer - b.targetAngle) * Math.min(1, delta * 0.8);
+        }
+
+        let angleDiff = b.targetAngle - b.wanderAngle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        b.wanderAngle += angleDiff * Math.min(1, delta * 2);
+
         const speed = b.speed * delta;
         b.mesh.position.x += Math.cos(b.wanderAngle) * speed;
         b.mesh.position.z += Math.sin(b.wanderAngle) * speed;
-        b.mesh.position.y = b.baseY + Math.sin(elapsed * 0.5 + b.phase * 0.1) * 0.5;
-
-        // Face direction
+        b.mesh.position.y = b.baseY + Math.sin(elapsed * 0.5 + b.phase * 0.1) * 0.35;
         b.mesh.rotation.y = b.wanderAngle + Math.PI / 2;
-
-        // Keep near player area
-        const dx = b.mesh.position.x - playerPos.x;
-        const dz = b.mesh.position.z - playerPos.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        if (dist > 40) {
-            b.wanderAngle = Math.atan2(playerPos.z - b.mesh.position.z, playerPos.x - b.mesh.position.x);
-        }
     }
 
     for (const bird of birds) {
         const bdx = bird.mesh.position.x - playerPos.x;
         const bdz = bird.mesh.position.z - playerPos.z;
-        if (Math.sqrt(bdx * bdx + bdz * bdz) > cullDist) continue;
+        const dist = Math.sqrt(bdx * bdx + bdz * bdz);
+
+        if (dist > cullDist) {
+            bird.mesh.visible = false;
+            continue;
+        }
+        bird.mesh.visible = true;
+
+        bird.centerX += (playerPos.x - bird.centerX) * Math.min(1, delta * 0.15);
+        bird.centerZ += (playerPos.z - bird.centerZ) * Math.min(1, delta * 0.15);
+
         bird.phase += delta * bird.wingSpeed;
         bird.circleAngle += bird.circleSpeed * delta;
 
-        // Circular flight path
-        bird.mesh.position.x = Math.cos(bird.circleAngle) * bird.circleRadius;
-        bird.mesh.position.z = Math.sin(bird.circleAngle) * bird.circleRadius;
-        bird.mesh.position.y = bird.baseY + Math.sin(elapsed * 0.3 + bird.phase) * 2;
+        bird.mesh.position.x = bird.centerX + Math.cos(bird.circleAngle) * bird.circleRadius;
+        bird.mesh.position.z = bird.centerZ + Math.sin(bird.circleAngle) * bird.circleRadius;
+        bird.mesh.position.y = bird.baseY + Math.sin(elapsed * 0.3 + bird.phase) * 1.2;
 
-        // Wing flapping
-        const wingAngle = Math.sin(bird.phase) * 0.4;
+        const wingAngle = Math.sin(bird.phase) * 0.35;
         bird.leftWing.rotation.x = 0.2 + wingAngle;
         bird.rightWing.rotation.x = -0.2 - wingAngle;
-
-        // Face direction of travel
         bird.mesh.rotation.y = bird.circleAngle + Math.PI / 2;
     }
 }

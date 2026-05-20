@@ -33,6 +33,19 @@ let cycleTime = 0;
 /** Current night amount 0..1 */
 let nightAmount = 0;
 
+/** @type {THREE.DirectionalLight|null} */
+let fillLight = null;
+/** @type {THREE.DirectionalLight|null} */
+let rimLight = null;
+/** @type {THREE.PointLight|null} */
+let warmGlow = null;
+
+let lastSkyPaintPhase = -1;
+let skyPaintCooldown = 0;
+
+/** @type {{x:number, z:number}|null} */
+let shadowFocus = null;
+
 /**
  * Set up all scene lighting for golden-hour atmosphere.
  * @param {THREE.Scene} scene
@@ -61,21 +74,19 @@ export function setupLighting(scene) {
     sun.shadow.camera.bottom = -SHADOW_FRUSTUM;
     sun.shadow.bias = -0.0005;
     sun.shadow.normalBias = 0.02;
-    sun.shadow.radius = 2; // Soft shadow edges
+    sun.shadow.radius = 2;
     scene.add(sun);
+    scene.add(sun.target);
 
-    // Secondary warm fill light (enhanced)
-    const fill = new THREE.DirectionalLight(0xFF8A65, 0.4);
-    fill.position.set(60, 25, 40);
-    scene.add(fill);
+    fillLight = new THREE.DirectionalLight(0xFF8A65, 0.4);
+    fillLight.position.set(60, 25, 40);
+    scene.add(fillLight);
 
-    // Back rim light for depth
-    const rim = new THREE.DirectionalLight(0xFFCC80, 0.2);
-    rim.position.set(0, 50, 80);
-    scene.add(rim);
+    rimLight = new THREE.DirectionalLight(0xFFCC80, 0.2);
+    rimLight.position.set(0, 50, 80);
+    scene.add(rimLight);
 
-    // Subtle warm point light near player start
-    const warmGlow = new THREE.PointLight(0xFFCC80, 0.6, 60);
+    warmGlow = new THREE.PointLight(0xFFCC80, 0.35, 60);
     warmGlow.position.set(0, 10, 0);
     scene.add(warmGlow);
 }
@@ -202,33 +213,65 @@ function lerpColor(a, b, t) {
  * @param {number} delta - frame delta in seconds
  * @param {THREE.Scene} scene
  */
-export function updateDayNight(delta, scene) {
+/**
+ * @param {number} delta
+ * @param {THREE.Scene} scene
+ * @param {{x:number, z:number}} [playerPos]
+ */
+export function updateDayNight(delta, scene, playerPos) {
     if (!DAY_NIGHT_ENABLED) return;
 
     cycleTime = (cycleTime + delta / DAY_NIGHT_CYCLE_DURATION) % 1;
     const phase = cycleTime;
-    nightAmount = Math.sin(phase * Math.PI); // 0 at golden hour, 1 at midnight
+    nightAmount = Math.sin(phase * Math.PI);
 
-    // Adjust sun intensity and position
+    if (playerPos) {
+        shadowFocus = playerPos;
+    }
+
     if (sun) {
         sun.intensity = 1.2 * (1 - nightAmount * 0.8);
         const angle = phase * Math.PI * 2;
         sun.position.set(-80 * Math.cos(angle), 30 * (1 - nightAmount * 0.5), -60 * Math.sin(angle));
+
+        if (shadowFocus) {
+            sun.target.position.set(shadowFocus.x, 0, shadowFocus.z);
+            sun.target.updateMatrixWorld();
+            sun.shadow.camera.position.set(
+                shadowFocus.x - 40,
+                50,
+                shadowFocus.z - 40,
+            );
+            sun.shadow.camera.lookAt(shadowFocus.x, 0, shadowFocus.z);
+            sun.shadow.camera.updateProjectionMatrix();
+        }
     }
 
-    // Adjust ambient
     if (ambient) {
         ambient.intensity = 0.4 * (1 - nightAmount * 0.6);
+        ambient.color.setHex(lerpColorNum(0xFFE0B2, 0x8899aa, nightAmount * 0.5));
     }
 
-    // Adjust hemisphere light
     if (hemi) {
         hemi.intensity = 0.4 * (1 - nightAmount * 0.5);
     }
 
-    // Adjust fog density
+    if (fillLight) {
+        fillLight.intensity = 0.4 * (1 - nightAmount * 0.85);
+    }
+    if (rimLight) {
+        rimLight.intensity = 0.2 * (1 - nightAmount * 0.7);
+    }
+    if (warmGlow && shadowFocus) {
+        warmGlow.intensity = 0.15 + nightAmount * 0.35;
+        warmGlow.position.set(shadowFocus.x, 8, shadowFocus.z);
+    }
+
     if (scene.fog) {
-        scene.fog.density = FOG_DENSITY * (1 + nightAmount * 0.5);
+        scene.fog.density = FOG_DENSITY * (0.85 + nightAmount * 0.55);
+        const fogDay = FOG_COLOR;
+        const fogNight = 0x2a3340;
+        scene.fog.color.setHex(lerpColorNum(fogDay, fogNight, nightAmount * 0.65));
     }
 
     // Control star visibility
@@ -248,11 +291,27 @@ export function updateDayNight(delta, scene) {
         );
     }
 
-    // Repaint sky gradient
-    paintSkyGradient(phase);
-    if (skyTexture) {
-        skyTexture.needsUpdate = true;
+    skyPaintCooldown -= delta;
+    const phaseStep = Math.floor(phase * 120);
+    if (skyPaintCooldown <= 0 || phaseStep !== lastSkyPaintPhase) {
+        paintSkyGradient(phase);
+        if (skyTexture) skyTexture.needsUpdate = true;
+        lastSkyPaintPhase = phaseStep;
+        skyPaintCooldown = 0.2;
     }
+}
+
+function lerpColorNum(a, b, t) {
+    const ar = (a >> 16) & 255;
+    const ag = (a >> 8) & 255;
+    const ab = a & 255;
+    const br = (b >> 16) & 255;
+    const bg = (b >> 8) & 255;
+    const bb = b & 255;
+    const r = Math.round(ar + (br - ar) * t);
+    const g = Math.round(ag + (bg - ag) * t);
+    const bl = Math.round(ab + (bb - ab) * t);
+    return (r << 16) | (g << 8) | bl;
 }
 
 /**

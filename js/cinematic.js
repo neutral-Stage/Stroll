@@ -12,6 +12,7 @@
 
 import * as THREE from 'three';
 import { PLAYER_HEIGHT } from './config.js';
+import { syncPlayerLookFromCamera } from './controls.js';
 
 let isPlaying = false;
 let cinematicTime = 0;
@@ -90,6 +91,7 @@ export function updateCinematic(delta, camera) {
     // Check completion
     if (t >= 1) {
         isPlaying = false;
+        syncPlayerLookFromCamera(camera);
         const overlay = document.getElementById('cinematic-overlay');
         if (overlay) {
             overlay.style.opacity = '0';
@@ -137,9 +139,10 @@ function smoothstep(t) {
 /**
  * Skip the cinematic intro.
  */
-export function skipCinematic() {
+export function skipCinematic(camera) {
     if (!isPlaying) return;
     cinematicTime = CINEMATIC_DURATION;
+    if (camera) syncPlayerLookFromCamera(camera);
 }
 
 export function isCinematicPlaying() { return isPlaying; }

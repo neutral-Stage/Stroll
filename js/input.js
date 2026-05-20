@@ -31,7 +31,7 @@ export function setupGameInput(ctx) {
 
     document.addEventListener('keydown', (e) => {
         if (isCinematicPlaying()) {
-            skipCinematic();
+            skipCinematic(camera);
             return;
         }
 

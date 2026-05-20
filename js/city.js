@@ -26,8 +26,8 @@ import {
 
 // ── Shared materials (created once, reused everywhere) ───────
 const buildingMats = BUILDING_COLORS.map(c => new THREE.MeshLambertMaterial({ color: c }));
-const windowLitMat = new THREE.MeshBasicMaterial({ color: 0xFFE082 });
-const windowDimMat = new THREE.MeshBasicMaterial({ color: 0xFFF8E1 });
+const windowLitMat = new THREE.MeshBasicMaterial({ color: 0xFFE082, transparent: true, opacity: 0.5 });
+const windowDimMat = new THREE.MeshBasicMaterial({ color: 0xFFF8E1, transparent: true, opacity: 0.2 });
 const sidewalkMat = new THREE.MeshLambertMaterial({ color: 0xC8C0B0 });
 const stoneMat = new THREE.MeshLambertMaterial({ color: 0xBDBDBD });
 const waterMat = new THREE.MeshLambertMaterial({ color: 0x4FC3F7, transparent: true, opacity: 0.7 });
@@ -498,9 +498,10 @@ function createLampPost(scene, x, z, hasLight) {
 
     // Only a few lamps get actual PointLights (performance)
     if (hasLight) {
-        const light = new THREE.PointLight(0xFFE082, 0.4, 15);
+        const light = new THREE.PointLight(0xFFE082, 0.25, 15);
         light.position.set(x + 1.1, 4.5, z);
         scene.add(light);
+        lampPointLights.push(light);
     }
 }
 
@@ -522,4 +523,57 @@ export function isInsideBuilding(x, z, padding = 1) {
         }
     }
     return false;
+}
+
+/**
+ * @param {number} x
+ * @param {number} z
+ * @param {number} [padding=0]
+ */
+export function isBlockedByTree(x, z, padding = 0) {
+    for (let i = 0; i < treeData.length; i++) {
+        const t = treeData[i];
+        const r = (t.large ? 1.1 : 0.75) + padding;
+        const dx = x - t.x;
+        const dz = z - t.z;
+        if (dx * dx + dz * dz < r * r) return true;
+    }
+    return false;
+}
+
+/** @type {THREE.PointLight[]} */
+const lampPointLights = [];
+
+/**
+ * Adjust street and window lighting for time of day.
+ * @param {number} nightAmount 0..1
+ */
+export function updateCityLighting(nightAmount) {
+    const warm = 0xFFE082;
+    const cool = 0xFFE8CC;
+    const n = Math.max(0, Math.min(1, nightAmount));
+    const t = Math.max(0, (n - 0.2) / 0.8);
+
+    lampGlowMat.color.setHex(lerpHex(cool, warm, t));
+    windowLitMat.color.setHex(lerpHex(0xFFF3D0, 0xFFE082, t));
+    windowLitMat.opacity = 0.35 + t * 0.55;
+    windowDimMat.opacity = 0.15 + t * 0.1;
+
+    const lightIntensity = 0.08 + t * 0.45;
+    for (const light of lampPointLights) {
+        light.intensity = lightIntensity;
+    }
+}
+
+function lerpHex(a, b, t) {
+    const ar = (a >> 16) & 255;
+    const ag = (a >> 8) & 255;
+    const ab = a & 255;
+    const br = (b >> 16) & 255;
+    const bg = (b >> 8) & 255;
+    const bb = b & 255;
+    const r = Math.round(ar + (br - ar) * t);
+    const g = Math.round(ag + (bg - ag) * t);
+    const bl = Math.round(ab + (bb - ab) * t);
+    return (r << 16) | (g << 8) | bl;
 }

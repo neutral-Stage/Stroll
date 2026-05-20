@@ -16,7 +16,7 @@ import {
     HEAD_BOB_SPEED, HEAD_BOB_AMOUNT, HEAD_BOB_THRESHOLD,
     CONTROLS_HINT_FADE_DELAY
 } from './config.js';
-import { isInsideBuilding } from './city.js';
+import { isInsideBuilding, isBlockedByTree } from './city.js';
 import { canPlayerMove } from './player-input.js';
 
 /** Player state */
@@ -39,8 +39,12 @@ let lookTouchId = null;
 let lookLastX = 0;
 let lookLastY = 0;
 
-/** Accumulated time for head bob (uses clock, not Date.now()) */
-let bobTime = 0;
+/** Head bob phase (radians) */
+let bobPhase = 0;
+
+/** Smoothed look (optional lag) */
+let viewYaw = 0;
+let viewPitch = 0;
 
 /** Controls hint visibility */
 let controlsHintVisible = true;
@@ -68,8 +72,9 @@ export function setupControls(renderer, camera) {
     rendererRef = renderer;
     cameraRef = camera;
 
-    // Set rotation order once (not every frame)
     camera.rotation.order = 'YXZ';
+    viewYaw = player.yaw;
+    viewPitch = player.pitch;
 
     // Keyboard — support both e.code (positional) and e.key (layout-aware)
     document.addEventListener('keydown', (e) => {
@@ -245,13 +250,15 @@ export function updatePlayer(delta, camera) {
     const newX = player.x + (moveX * cosYaw + moveZ * sinYaw) * speed;
     const newZ = player.z + (-moveX * sinYaw + moveZ * cosYaw) * speed;
 
-    // Sliding collision detection
-    if (!isInsideBuilding(newX, newZ, COLLISION_PADDING)) {
+    const blocked = (x, z) =>
+        isInsideBuilding(x, z, COLLISION_PADDING) || isBlockedByTree(x, z);
+
+    if (!blocked(newX, newZ)) {
         player.x = newX;
         player.z = newZ;
-    } else if (!isInsideBuilding(newX, player.z, COLLISION_PADDING)) {
+    } else if (!blocked(newX, player.z)) {
         player.x = newX;
-    } else if (!isInsideBuilding(player.x, newZ, COLLISION_PADDING)) {
+    } else if (!blocked(player.x, newZ)) {
         player.z = newZ;
     }
 
@@ -263,16 +270,29 @@ export function updatePlayer(delta, camera) {
     // Update camera position
     camera.position.set(player.x, PLAYER_HEIGHT, player.z);
 
-    // Gentle head bob when moving (uses accumulated clock time, not Date.now())
     if (len > HEAD_BOB_THRESHOLD) {
-        bobTime += delta;
-        const bobAmount = Math.sin(bobTime / HEAD_BOB_SPEED * 0.001) * HEAD_BOB_AMOUNT;
-        camera.position.y += bobAmount;
+        bobPhase += delta * HEAD_BOB_SPEED;
+        camera.position.y += Math.abs(Math.sin(bobPhase)) * HEAD_BOB_AMOUNT;
     }
 
-    // Camera rotation (order already set in setupControls)
-    camera.rotation.y = player.yaw;
-    camera.rotation.x = player.pitch;
+    const lookLerp = 1 - Math.exp(-14 * delta);
+    viewYaw += (player.yaw - viewYaw) * lookLerp;
+    viewPitch += (player.pitch - viewPitch) * lookLerp;
+    camera.rotation.y = viewYaw;
+    camera.rotation.x = viewPitch;
+}
+
+/**
+ * Align player look with camera (after cinematic).
+ * @param {THREE.PerspectiveCamera} camera
+ */
+export function syncPlayerLookFromCamera(camera) {
+    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+    euler.setFromQuaternion(camera.quaternion, 'YXZ');
+    player.yaw = euler.y;
+    player.pitch = euler.x;
+    viewYaw = player.yaw;
+    viewPitch = player.pitch;
 }
 
 /**
