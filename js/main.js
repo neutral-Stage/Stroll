@@ -85,9 +85,9 @@ function initCore() {
     setupSkybox(scene);
     setupGround(scene);
 
-    updateLoadingProgress(10, 'Generating city...');
-    generateCity(scene, (percent) => updateLoadingProgress(percent, 'Building the world...'));
-    updateLoadingProgress(50, 'Adding life...');
+    updateLoadingProgress(10, 'Generating layout');
+    generateCity(scene, (percent) => updateLoadingProgress(percent, 'Building geometry'));
+    updateLoadingProgress(50, 'Populating scene');
 
     generateNPCs(scene);
     createCollectibles(scene);
@@ -104,7 +104,7 @@ function initCore() {
     }
 
     initWeather(scene);
-    updateLoadingProgress(92, 'Setting up controls...');
+    updateLoadingProgress(92, 'Binding input');
 
     setupControls(renderer, camera);
     setupMobileControls();
@@ -128,15 +128,15 @@ function initCore() {
     setupLoadingRetry();
 
     onAchievement((ach) => {
-        showToast(ach.icon, 'Achievement Unlocked!', ach.name + ' — ' + ach.desc, 'achievement');
+        showToast(ach.name, ach.desc, 'achievement');
         playAchievementSound();
     });
     onDiscovery((name, desc) => {
-        showToast('📍', 'Discovery!', name + ' — ' + desc, 'discovery');
+        showToast(name, desc, 'discovery');
         playDiscoverySound();
     });
 
-    updateLoadingProgress(95, 'Almost ready...');
+    updateLoadingProgress(95, 'Finalizing');
     scheduleThought();
 
     clock = new THREE.Clock();
@@ -263,9 +263,9 @@ function showThought() {
     const bubble = document.getElementById('thought-bubble');
     if (!bubble) return;
     if (isPhotoModeActive() || isMeditationActive() || getIsPaused()) return;
-    bubble.textContent = '"' + THOUGHTS[Math.floor(Math.random() * THOUGHTS.length)] + '"';
-    bubble.classList.add('visible');
-    setTimeout(() => bubble.classList.remove('visible'), THOUGHT_DISPLAY_TIME);
+    bubble.textContent = THOUGHTS[Math.floor(Math.random() * THOUGHTS.length)];
+    bubble.classList.add('is-visible');
+    setTimeout(() => bubble.classList.remove('is-visible'), THOUGHT_DISPLAY_TIME);
 }
 
 function animate() {

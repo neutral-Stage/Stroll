@@ -224,7 +224,7 @@ function createAmmoHUD() {
 
     const ammoHud = document.createElement('div');
     ammoHud.id = 'ammo-hud';
-    ammoHud.innerHTML = `<span class="ammo-icon">🔫</span> <span id="ammo-count">${ammo}</span>`;
+    ammoHud.innerHTML = `<span class="ammo-label">Ammo</span> <span id="ammo-count">${ammo}</span>`;
     document.body.appendChild(ammoHud);
 }
 

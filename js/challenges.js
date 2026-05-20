@@ -42,18 +42,18 @@ const WAYPOINT_DEFS = [
 
 // Achievement definitions
 const ACHIEVEMENT_LIST = [
-    { id: 'first_steps', name: 'First Steps', desc: 'Begin exploring after the intro', icon: '👣', condition: (stats) => stats.strollBegun },
-    { id: 'collector_10', name: 'Curious Collector', desc: 'Collect 10 items', icon: '✨', condition: (stats) => stats.collected >= 10 },
-    { id: 'collector_25', name: 'Treasure Hunter', desc: 'Collect 25 items', icon: '💎', condition: (stats) => stats.collected >= 25 },
-    { id: 'collector_all', name: 'Completionist', desc: 'Collect all treasures (orbs + special finds)', icon: '🏆', condition: (stats) => stats.collected >= stats.totalCollectibles },
-    { id: 'explorer_3', name: 'Wanderer', desc: 'Discover 3 waypoints', icon: '🗺️', condition: (stats) => stats.waypointsFound >= 3 },
-    { id: 'explorer_all', name: 'Cartographer', desc: 'Discover all waypoints', icon: '🧭', condition: (stats) => stats.waypointsFound >= WAYPOINT_DEFS.length },
-    { id: 'night_owl', name: 'Night Owl', desc: 'Experience nighttime', icon: '🦉', condition: (stats) => stats.nightSeen },
-    { id: 'photographer', name: 'Photographer', desc: 'Use photo mode', icon: '📸', condition: (stats) => stats.usedPhotoMode || stats.photosTaken > 0 },
-    { id: 'zen_master', name: 'Zen Master', desc: 'Use meditation mode', icon: '🧘', condition: (stats) => stats.meditated },
-    { id: 'flower_power', name: 'Flower Power', desc: 'Interact with 5 flowers', icon: '🌸', condition: (stats) => stats.flowersInteracted >= 5 },
-    { id: 'marathon', name: 'Marathon Walker', desc: 'Walk 1000 units', icon: '🏃', condition: (stats) => stats.distanceWalked >= 1000 },
-    { id: 'stargazer', name: 'Stargazer', desc: 'Collect all stars', icon: '⭐', condition: (stats) => stats.starsCollected >= 5 },
+    { id: 'first_steps', badge: '01', name: 'First Steps', desc: 'Leave the intro sequence', condition: (stats) => stats.strollBegun },
+    { id: 'collector_10', badge: '10', name: 'Curious Collector', desc: 'Collect 10 items', condition: (stats) => stats.collected >= 10 },
+    { id: 'collector_25', badge: '25', name: 'Treasure Hunter', desc: 'Collect 25 items', condition: (stats) => stats.collected >= 25 },
+    { id: 'collector_all', badge: 'ALL', name: 'Completionist', desc: 'Collect every pickup in the world', condition: (stats) => stats.collected >= stats.totalCollectibles },
+    { id: 'explorer_3', badge: 'WP3', name: 'Wanderer', desc: 'Visit 3 waypoints', condition: (stats) => stats.waypointsFound >= 3 },
+    { id: 'explorer_all', badge: 'MAP', name: 'Cartographer', desc: 'Visit every waypoint', condition: (stats) => stats.waypointsFound >= WAYPOINT_DEFS.length },
+    { id: 'night_owl', badge: 'N', name: 'Night Owl', desc: 'Stay out past dusk', condition: (stats) => stats.nightSeen },
+    { id: 'photographer', badge: 'PH', name: 'Photographer', desc: 'Enter photo mode', condition: (stats) => stats.usedPhotoMode || stats.photosTaken > 0 },
+    { id: 'zen_master', badge: 'RST', name: 'Stillness', desc: 'Use rest mode', condition: (stats) => stats.meditated },
+    { id: 'flower_power', badge: 'FL', name: 'In Bloom', desc: 'Interact with 5 flowers', condition: (stats) => stats.flowersInteracted >= 5 },
+    { id: 'marathon', badge: '1K', name: 'Long Walk', desc: 'Walk 1000 units', condition: (stats) => stats.distanceWalked >= 1000 },
+    { id: 'stargazer', badge: '*', name: 'Stargazer', desc: 'Collect every star', condition: (stats) => stats.starsCollected >= 5 },
 ];
 
 /**

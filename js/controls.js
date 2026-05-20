@@ -101,7 +101,7 @@ export function setupControls(renderer, camera) {
     document.addEventListener('pointerlockchange', () => {
         isPointerLocked = document.pointerLockElement === renderer.domElement;
         if (isPointerLocked) {
-            document.body.classList.add('playing');
+            document.body.classList.add('is-playing', 'playing');
             fadeControlsHint();
         } else {
             document.body.classList.remove('playing');

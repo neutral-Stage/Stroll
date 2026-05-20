@@ -1,37 +1,76 @@
-/* ============================================================
-   Stroll — design tokens (colors, type, spacing, z-index)
-   Imported by style.css — change theme values here only.
-   ============================================================ */
+/* Stroll — design tokens */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Libre+Baskerville:ital@0;1&family=Libre+Franklin:wght@400;500;600&display=swap');
 
 :root {
-    /* Background & surfaces */
-    --stroll-bg-deep: #1a1a2e;
-    --stroll-bg-mid: #16213e;
-    --stroll-bg-accent: #0f3460;
-    --stroll-surface: rgba(20, 20, 40, 0.92);
-    --stroll-surface-border: rgba(255, 255, 255, 0.15);
+    /* Surfaces */
+    --color-bg: #11100f;
+    --color-bg-raised: #1a1917;
+    --color-bg-overlay: rgba(17, 16, 15, 0.88);
+    --color-border: rgba(232, 228, 220, 0.1);
+    --color-border-strong: rgba(232, 228, 220, 0.18);
 
     /* Text */
-    --stroll-text: rgba(255, 248, 230, 0.85);
-    --stroll-text-muted: rgba(255, 248, 230, 0.55);
-    --stroll-text-faint: rgba(255, 248, 230, 0.35);
+    --color-text: #e8e4dc;
+    --color-text-secondary: rgba(232, 228, 220, 0.62);
+    --color-text-tertiary: rgba(232, 228, 220, 0.38);
 
-    /* Accents */
-    --stroll-gold: #fca311;
-    --stroll-gold-light: #ffba49;
-    --stroll-teal: #80deeA;
-    --stroll-error: #ff6b6b;
+    /* Accent — single warm neutral, no rainbow UI */
+    --color-accent: #b8956c;
+    --color-accent-soft: rgba(184, 149, 108, 0.14);
+    --color-positive: #7d9a82;
+    --color-negative: #b86f64;
 
     /* Typography */
-    --stroll-font-serif: 'Georgia', 'Times New Roman', serif;
-    --stroll-font-mono: 'Courier New', monospace;
+    --font-ui: 'Libre Franklin', system-ui, -apple-system, sans-serif;
+    --font-display: 'Libre Baskerville', 'Iowan Old Style', Georgia, serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 
-    /* Layout */
-    --stroll-radius: 12px;
-    --stroll-radius-sm: 6px;
-    --stroll-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    --text-xs: 0.6875rem;   /* 11px */
+    --text-sm: 0.8125rem;   /* 13px */
+    --text-base: 0.9375rem; /* 15px */
+    --text-lg: 1.125rem;
+    --text-xl: 1.5rem;
+    --text-2xl: 2.25rem;
 
-    /* Stacking */
+    --leading-tight: 1.25;
+    --leading-normal: 1.5;
+    --tracking-wide: 0.06em;
+    --tracking-wider: 0.12em;
+
+    /* Spacing (4px grid) */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-8: 48px;
+
+    /* Shape */
+    --radius-sm: 2px;
+    --radius-md: 4px;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+    /* Legacy aliases (gradual migration) */
+    --stroll-bg-deep: var(--color-bg);
+    --stroll-bg-mid: var(--color-bg-raised);
+    --stroll-bg-accent: #242220;
+    --stroll-surface: var(--color-bg-raised);
+    --stroll-surface-border: var(--color-border);
+    --stroll-text: var(--color-text);
+    --stroll-text-muted: var(--color-text-secondary);
+    --stroll-text-faint: var(--color-text-tertiary);
+    --stroll-gold: var(--color-accent);
+    --stroll-gold-light: #d4b896;
+    --stroll-teal: var(--color-positive);
+    --stroll-error: var(--color-negative);
+    --stroll-font-serif: var(--font-display);
+    --stroll-font-mono: var(--font-mono);
+    --stroll-radius: var(--radius-md);
+    --stroll-radius-sm: var(--radius-sm);
+    --stroll-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+
     --z-canvas: 0;
     --z-ui: 10;
     --z-hud: 15;

@@ -1,6 +1,4 @@
-/* ============================================================
-   Stroll — prefers-reduced-motion overrides
-   ============================================================ */
+/* prefers-reduced-motion */
 
 @media (prefers-reduced-motion: reduce) {
     *,
@@ -12,8 +10,7 @@
         scroll-behavior: auto !important;
     }
 
-    #cinematic-skip,
-    #loading-text {
+    #cinematic-skip {
         animation: none !important;
     }
 

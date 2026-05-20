@@ -1,65 +1,73 @@
-/* ============================================================
-   Stroll — HUD, compass, toasts
-   ============================================================ */
+/* Stroll — HUD, compass, notifications */
 
-#hud {
+.hud {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
+    right: 0;
     display: flex;
-    justify-content: space-between;
     align-items: flex-start;
-    padding: 16px 24px;
+    justify-content: space-between;
+    padding: var(--space-5);
+    padding-top: 5.5rem;
     pointer-events: none;
     z-index: var(--z-hud);
     opacity: 0;
-    transition: opacity 1s ease;
+    transition: opacity 0.6s var(--ease-out);
 }
 
+body.is-playing .hud,
+body.playing .hud,
+body.is-playing #hud,
 body.playing #hud {
     opacity: 1;
 }
 
-#hud-left, #hud-right {
+.hud__cluster {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-top: 70px;
+    gap: var(--space-2);
 }
 
-#hud-center {
-    display: flex;
-    justify-content: center;
-}
-
-.hud-item {
-    display: flex;
+.hud__cluster--center {
     align-items: center;
-    gap: 6px;
-    color: var(--stroll-text-muted);
-    font-size: 13px;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-    letter-spacing: 1px;
 }
 
-.hud-icon {
-    font-size: 14px;
+.hud-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 4.5rem;
 }
 
-/* ── Compass ────────────────────────────────────────────────── */
+.hud-stat__label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+}
 
-#compass {
+.hud-stat__value {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+}
+
+/* Compass */
+.compass {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-top: 12px;
+    gap: var(--space-1);
 }
 
-#compass-ring {
-    width: 40px;
-    height: 40px;
-    border: 1px solid rgba(255, 248, 230, 0.2);
+.compass__ring {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--color-border);
     border-radius: 50%;
     position: relative;
     display: flex;
@@ -67,58 +75,68 @@ body.playing #hud {
     justify-content: center;
 }
 
-#compass-needle {
-    width: 2px;
-    height: 16px;
-    background: linear-gradient(to bottom, #ff6b6b 50%, rgba(255, 248, 230, 0.4) 50%);
-    border-radius: 1px;
-    transition: transform 0.15s ease;
+.compass__needle {
+    width: 1px;
+    height: 14px;
+    background: linear-gradient(
+        to bottom,
+        var(--color-negative) 50%,
+        var(--color-text-tertiary) 50%
+    );
+    transition: transform 0.12s linear;
 }
 
-#compass-n {
+.compass__north {
     position: absolute;
-    top: -8px;
-    font-size: 8px;
-    color: var(--stroll-text-faint);
-    font-family: var(--stroll-font-mono);
+    top: -10px;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.05em;
+    color: var(--color-text-tertiary);
 }
 
-#compass-dir {
-    font-size: 10px;
-    color: var(--stroll-text-faint);
-    margin-top: 4px;
-    font-family: var(--stroll-font-mono);
-    letter-spacing: 2px;
+.compass__heading {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text-tertiary);
 }
 
-/* ── Toast Notifications ────────────────────────────────────── */
-
+/* Toasts */
 #toast-container {
     position: fixed;
-    top: 80px;
-    right: 24px;
+    top: var(--space-5);
+    right: var(--space-5);
     z-index: var(--z-minigame);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-2);
     pointer-events: none;
+    max-width: min(22rem, calc(100vw - var(--space-8)));
 }
 
 .toast {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--stroll-surface);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--stroll-surface-border);
-    border-radius: var(--stroll-radius);
-    padding: 12px 18px;
-    color: var(--stroll-text);
-    transform: translateX(120%);
-    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+    position: relative;
+    padding: var(--space-3) var(--space-4);
+    padding-left: calc(var(--space-3) + 3px);
+    background: var(--color-bg-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+    transform: translateX(calc(100% + var(--space-5)));
     opacity: 0;
-    min-width: 250px;
-    box-shadow: var(--stroll-shadow);
+    transition: transform 0.35s var(--ease-out), opacity 0.35s var(--ease-out);
+}
+
+.toast::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: var(--space-2);
+    bottom: var(--space-2);
+    width: 2px;
+    border-radius: 1px;
+    background: var(--color-text-tertiary);
 }
 
 .toast-show {
@@ -127,60 +145,48 @@ body.playing #hud {
 }
 
 .toast-hide {
-    transform: translateX(120%);
+    transform: translateX(calc(100% + var(--space-5)));
     opacity: 0;
 }
 
-.toast-achievement {
-    border-color: rgba(255, 215, 64, 0.3);
-    background: rgba(40, 30, 10, 0.85);
+.toast-achievement::before { background: var(--color-accent); }
+.toast-discovery::before { background: var(--color-positive); }
+.toast-info::before { background: var(--color-text-tertiary); }
+
+.toast__title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    letter-spacing: 0.02em;
 }
 
-.toast-discovery {
-    border-color: rgba(128, 222, 234, 0.3);
-    background: rgba(10, 30, 40, 0.85);
-}
-
-.toast-icon {
-    font-size: 24px;
-}
-
-.toast-content {
-    display: flex;
-    flex-direction: column;
-}
-
-.toast-title {
-    font-size: 13px;
-    font-weight: bold;
-    letter-spacing: 1px;
-}
-
-.toast-message {
-    font-size: 11px;
-    opacity: 0.7;
-    font-style: italic;
+.toast__message {
     margin-top: 2px;
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-normal);
 }
 
-/* ── Weapon ammo (peaceful mode: hidden via JS) ─────────────── */
-
+/* Ammo (weapon mode) */
 #ammo-hud {
     position: fixed;
-    bottom: 30px;
-    right: 30px;
+    bottom: var(--space-5);
+    right: var(--space-5);
     display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--stroll-text);
-    font-family: var(--stroll-font-mono);
-    font-size: 16px;
-    font-weight: bold;
-    text-shadow: var(--stroll-shadow);
+    align-items: baseline;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-secondary);
     z-index: var(--z-hud);
     pointer-events: none;
 }
 
-#ammo-hud .ammo-icon {
-    font-size: 14px;
+#ammo-hud .ammo-label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
 }

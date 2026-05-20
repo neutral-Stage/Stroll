@@ -50,7 +50,7 @@ export function setupGameInput(ctx) {
             if (isMeditationActive()) return;
             if (togglePhotoMode(camera, player, renderer)) {
                 markPhotoModeUsed();
-                showToast('📸', 'Photo Mode', 'Orbit with mouse, scroll to zoom', 'info');
+                showToast('Photo mode', 'Orbit with mouse · scroll to zoom', 'info');
             }
         }
 
@@ -58,7 +58,7 @@ export function setupGameInput(ctx) {
             if (isPhotoModeActive()) return;
             if (toggleMeditation(camera, player)) {
                 session.meditated = true;
-                showToast('🧘', 'Meditation', 'Relax and breathe...', 'info');
+                showToast('Rest mode', 'Press N to exit', 'info');
             }
         }
 
@@ -68,7 +68,7 @@ export function setupGameInput(ctx) {
 
         if (e.key === 'r' || e.key === 'R') {
             const enabled = toggleWeather();
-            showToast(enabled ? '🌧️' : '☀️', 'Weather', enabled ? 'Rain starting...' : 'Clearing up...', 'info');
+            showToast('Weather', enabled ? 'Rain enabled' : 'Clearing skies', 'info');
         }
 
         if (e.key === 'b' || e.key === 'B') {
@@ -79,12 +79,12 @@ export function setupGameInput(ctx) {
             if (!canPlayerAct()) return;
             if (getActiveGame()) {
                 const result = endMiniGame(scene);
-                showToast('🎮', 'Game Over', `Score: ${result.score}`, 'achievement');
+                showToast('Activity ended', `Score ${result.score}`, 'achievement');
             } else {
                 const games = getPlayableGames();
                 const game = games[Math.floor(Math.random() * games.length)];
                 startMiniGame(game, scene);
-                showToast('🎮', 'Mini-Game', 'Treasure hunt — follow the clues!', 'info');
+                showToast('Activity started', game === 'breathing' ? 'Follow the breath rhythm' : 'Follow the clues', 'info');
             }
         }
 
@@ -93,7 +93,7 @@ export function setupGameInput(ctx) {
             if (e.key === ' ') {
                 takeScreenshot(renderer, scene, camera);
                 session.photosTaken++;
-                showToast('📸', 'Photo Saved!', 'Screenshot downloaded', 'info');
+                showToast('Photo saved', 'Downloaded as PNG', 'info');
             }
         }
     });
@@ -115,7 +115,7 @@ export function setupGameInput(ctx) {
             y: -(e.clientY / window.innerHeight) * 2 + 1,
         };
         if (handleClick(camera, mouseNDC, scene)) {
-            showToast('🌸', 'Bloom!', 'A flower opens for you', 'info');
+            showToast('Flower', 'Bloom triggered', 'info');
         }
     });
 
@@ -126,7 +126,7 @@ function cycleAmbientMood() {
     const mood = MOODS[moodIndex];
     setAmbientMood(mood);
     const labels = { calm: 'Calm', nature: 'Nature', meditative: 'Meditative', dreamy: 'Dreamy' };
-    showToast('🎵', 'Ambient Mood', labels[mood] || mood, 'info');
+    showToast('Ambience', labels[mood] || mood, 'info');
 }
 
 export function setupJournalTabListeners() {

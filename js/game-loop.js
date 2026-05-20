@@ -111,12 +111,12 @@ export function tick(ctx) {
         }
         let message = '';
         switch (enhancedCollect.type) {
-            case 'rainbow_gem': message = `Rainbow Gem! +${enhancedCollect.value}`; break;
-            case 'artifact': message = enhancedCollect.lore || 'Ancient Artifact!'; break;
-            case 'music_note': message = 'Musical Note! ♪'; break;
-            case 'mystery_box': message = `Mystery Box! +${enhancedCollect.value}`; break;
+            case 'rainbow_gem': message = `Gem · +${enhancedCollect.value}`; break;
+            case 'artifact': message = enhancedCollect.lore || 'Artifact recovered'; break;
+            case 'music_note': message = 'Resonant note'; break;
+            case 'mystery_box': message = `Cache · +${enhancedCollect.value}`; break;
         }
-        showToast('✨', 'Discovery!', message, 'discovery');
+        if (message) showToast('Collected', message, 'discovery');
     }
 
     updateWildlife(delta, elapsed, player);

@@ -80,7 +80,7 @@ function enableSound(toggle) {
         }
         // Extra pads / piano — same graph as main soundscape (requires ctx + masterGain).
         startAmbient(audioCtx, masterGain);
-        toggle.textContent = '🔊';
+        setSoundToggleUi(toggle, true);
         soundOn = true;
     } catch (err) {
         console.warn('Failed to create AudioContext:', err);
@@ -94,8 +94,20 @@ function enableSound(toggle) {
 function disableSound(toggle) {
     stopAmbient();
     if (audioCtx) audioCtx.suspend();
-    toggle.textContent = '🔇';
+    setSoundToggleUi(toggle, false);
     soundOn = false;
+}
+
+/**
+ * @param {HTMLElement} toggle
+ * @param {boolean} on
+ */
+function setSoundToggleUi(toggle, on) {
+    toggle.classList.toggle('is-on', on);
+    toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    toggle.setAttribute('aria-label', on ? 'Sound on' : 'Sound off');
+    const label = toggle.querySelector('.sound-toggle__label');
+    if (label) label.textContent = on ? 'Sound on' : 'Sound off';
 }
 
 /**

@@ -1,77 +1,53 @@
-# 🌇 Stroll — A Peaceful City Walk
+# Stroll
 
-A calm, relaxing 3D browser walk through a procedurally generated city at golden hour. Built with **Three.js** and vanilla ES modules.
+A browser-based evening walk through a procedural city. Three.js, Web Audio, no framework.
 
-**Docs:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) · [`docs/FEATURES.md`](docs/FEATURES.md)
+**Documentation:** [Architecture](docs/ARCHITECTURE.md) · [Plan](docs/PROJECT_PLAN.md) · [Features](docs/FEATURES.md)
 
-![Three.js](https://img.shields.io/badge/Three.js-0.160.0-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-
-## Quick start
-
-**No install** — open `index.html` in a modern browser (Chrome, Firefox, Edge).
-
-**With tooling:**
+## Run locally
 
 ```bash
+# Static (no build)
+open index.html
+
+# Dev server
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # output in dist/
-npm test         # Playwright smoke tests
+npm run dev
+
+# Production build + tests
+npm run build
+npm test
 ```
 
-Enable sound with **M** for the full ambient + lofi experience.
+Enable audio with **M** after the page loads (browser autoplay policy).
 
 ## Controls
 
-| Key | Action |
-|-----|--------|
-| W A S D | Walk |
-| Mouse | Look |
-| Right click | Interact with flowers |
+| Input | Action |
+|-------|--------|
+| WASD | Move |
+| Mouse | Look (pointer lock) |
+| RMB | Interact with flowers |
 | P | Photo mode |
-| N | Meditation |
-| B | Ambient mood |
+| N | Rest / breathing |
+| B | Cycle ambience |
 | J | Journal |
-| R | Weather |
-| G | Treasure hunt / breathing game |
+| R | Rain toggle |
+| G | Activity (treasure or breathing) |
 | Esc | Pause |
 
-Combat is **off by default**. Set `FEATURE_WEAPON = true` in `js/config.js` to enable shooting (left click).
+Combat is disabled by default. Set `FEATURE_WEAPON = true` in `js/config.js` to enable.
 
-## Highlights
+## Stack
 
-- Procedural city, day/night cycle, NPCs, traffic, companion dog, wildlife
-- Collectibles + enhanced pickups (gems, artifacts, notes)
-- Achievements, waypoints, discovery journal
-- Photo mode, meditation, dynamic rain
-- Quality presets (auto low on mobile)
-- Accessible pause/journal focus traps and reduced-motion support
+- Three.js r160 (ES modules)
+- Optional Vite build for deployment
+- Playwright smoke tests in CI
 
 ## Deploy
 
-GitHub Pages (project site): push to `main` — workflow builds with `BASE_PATH=/Stroll/` and deploys `dist/`.
-
-Live: [neutral-Stage/Stroll](https://github.com/neutral-Stage/Stroll) (enable Pages → GitHub Actions in repo settings).
-
-## Project structure
-
-```
-├── index.html
-├── css/              Design tokens + HUD + overlays
-├── js/
-│   ├── main.js       Entry
-│   ├── game-loop.js  Frame updates
-│   ├── config.js     Tunables & feature flags
-│   └── …             City, audio, collectibles, HUD, etc.
-├── tests/            Playwright
-└── docs/             Architecture & plan
-```
+GitHub Pages workflow publishes `dist/` at `/Stroll/` when `main` is pushed. Enable **Pages → GitHub Actions** in repository settings.
 
 ## License
 
-MIT — use and modify freely.
-
----
-
-*There's nowhere to be. Just stroll.* 🌅
+MIT

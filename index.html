@@ -3,148 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Stroll — A calm, relaxing browser-based 3D city walk at golden hour. Built with Three.js.">
-    <meta name="theme-color" content="#1a1a2e">
-    <title>Stroll — A Peaceful City Walk</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌇</text></svg>">
+    <meta name="description" content="Stroll — a quiet 3D walk through a procedural city at dusk.">
+    <meta name="theme-color" content="#11100f">
+    <title>Stroll</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%2311100f' width='32' height='32' rx='4'/%3E%3Cpath fill='%23b8956c' d='M8 22 L16 8 L24 22 Z' opacity='.9'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <!-- Cinematic Intro Overlay -->
-    <div id="cinematic-overlay">
+    <div id="cinematic-overlay" aria-hidden="true">
         <div id="cinematic-title">Stroll</div>
-        <div id="cinematic-subtitle">a peaceful city walk</div>
-        <div id="cinematic-skip">Press any key to skip</div>
+        <div id="cinematic-subtitle">Evening walk</div>
+        <div id="cinematic-skip">Skip intro</div>
     </div>
 
-    <!-- UI Overlay -->
-    <div id="ui-overlay">
-        <div id="title">Stroll</div>
-        <div id="subtitle">a peaceful city walk</div>
-        <div id="controls-hint">
-            <span class="key">W A S D</span> or <span class="key">↑ ← ↓ →</span> to walk
-            <br><span class="key">Mouse</span> to look around
-            <br><span class="weapon-hint"><span class="key">Left Click</span> shoot · </span><span class="key">Right Click</span> <span id="interact-hint">interact with flowers</span>
-            <br><span class="key">M</span> sound · <span class="key">P</span> photo · <span class="key">N</span> meditate · <span class="key">B</span> ambient mood
-            <br><span class="key">J</span> journal · <span class="key">R</span> weather · <span class="minigame-hint"><span class="key">G</span> treasure hunt</span>
-            <br><span class="key">Esc</span> pause
-            <br><span class="key">Click</span> to start
-        </div>
-        <div id="thought-bubble"></div>
-        <button type="button" id="sound-toggle" aria-label="Toggle ambient sound" title="Toggle ambient sound (M)">🔇</button>
-        <!-- Crosshair for orientation -->
-        <div id="crosshair"></div>
-    </div>
+    <div id="ui-overlay" class="shell">
+        <header class="shell__brand">
+            <h1 id="title" class="shell__title">Stroll</h1>
+            <p id="subtitle" class="shell__tagline">Evening walk</p>
+        </header>
 
-    <!-- HUD -->
-    <div id="hud">
-        <div id="hud-left">
-            <div class="hud-item" title="Score">
-                <span class="hud-icon">✨</span>
-                <span id="hud-score">0</span>
-            </div>
-            <div class="hud-item" title="Collectibles">
-                <span class="hud-icon">💎</span>
-                <span id="hud-collected">0/0</span>
-            </div>
-            <div class="hud-item" title="Waypoints">
-                <span class="hud-icon">📍</span>
-                <span id="hud-waypoints">0/0</span>
-            </div>
-        </div>
-        <div id="hud-center">
-            <div id="compass">
-                <div id="compass-ring">
-                    <div id="compass-needle"></div>
-                    <span id="compass-n">N</span>
+        <aside id="controls-hint" class="shell__help" aria-label="Controls">
+            <div class="help-grid">
+                <div class="help-group">
+                    <span class="help-group__label">Move</span>
+                    <p class="help-group__row"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> walk</p>
+                    <p class="help-group__row">Mouse look · click to capture pointer</p>
+                    <p class="help-group__row weapon-hint"><kbd>LMB</kbd> fire</p>
+                    <p class="help-group__row"><kbd>RMB</kbd> <span id="interact-hint">flowers</span></p>
                 </div>
-                <div id="compass-dir">N</div>
+                <div class="help-group">
+                    <span class="help-group__label">Modes</span>
+                    <p class="help-group__row"><kbd>M</kbd> sound · <kbd>P</kbd> photo · <kbd>N</kbd> rest</p>
+                    <p class="help-group__row"><kbd>B</kbd> ambience · <kbd>R</kbd> rain</p>
+                    <p class="help-group__row"><kbd>J</kbd> journal · <kbd>Esc</kbd> pause</p>
+                    <p class="help-group__row minigame-hint"><kbd>G</kbd> activity</p>
+                </div>
+            </div>
+            <p class="help-footnote">Pointer lock required for look</p>
+        </aside>
+
+        <p id="thought-bubble" class="shell__thought" aria-live="polite"></p>
+
+        <button type="button" id="sound-toggle" class="sound-toggle" aria-pressed="false" aria-label="Sound off">
+            <span class="sound-toggle__dot" aria-hidden="true"></span>
+            <span class="sound-toggle__label">Sound off</span>
+        </button>
+
+        <div id="crosshair" class="shell__reticle" aria-hidden="true"></div>
+    </div>
+
+    <div id="hud" class="hud" aria-label="Status">
+        <div class="hud__cluster hud__cluster--start">
+            <div class="hud-stat" title="Score">
+                <span class="hud-stat__label">Score</span>
+                <span class="hud-stat__value" id="hud-score">0</span>
+            </div>
+            <div class="hud-stat" title="Collectibles">
+                <span class="hud-stat__label">Found</span>
+                <span class="hud-stat__value" id="hud-collected">0/0</span>
+            </div>
+            <div class="hud-stat" title="Waypoints">
+                <span class="hud-stat__label">Sites</span>
+                <span class="hud-stat__value" id="hud-waypoints">0/0</span>
             </div>
         </div>
-        <div id="hud-right">
-            <div class="hud-item" title="Time of Day">
-                <span class="hud-icon">🌅</span>
-                <span id="hud-time">Golden Hour</span>
+        <div class="hud__cluster hud__cluster--center">
+            <div id="compass" class="compass">
+                <div id="compass-ring" class="compass__ring">
+                    <div id="compass-needle" class="compass__needle"></div>
+                    <span id="compass-n" class="compass__north">N</span>
+                </div>
+                <div id="compass-dir" class="compass__heading">N</div>
+            </div>
+        </div>
+        <div class="hud__cluster">
+            <div class="hud-stat" title="Time of day">
+                <span class="hud-stat__label">Light</span>
+                <span class="hud-stat__value" id="hud-time">Dusk</span>
             </div>
         </div>
     </div>
 
-    <!-- Toast Notifications -->
-    <div id="toast-container"></div>
+    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
-    <!-- Photo Mode UI -->
-    <div id="photo-mode-ui" style="display:none;">
-        <div id="photo-mode-header">📸 Photo Mode</div>
-        <div id="photo-mode-controls">
-            <span>Mouse: Orbit</span> · <span>Scroll: Zoom</span>
-            <br><span class="key">F</span> Filter: <span id="filter-name">None</span>
-            <br><span class="key">Space</span> Take Photo
-            <br><span class="key">P</span> Exit
+    <div id="photo-mode-ui" class="mode-panel" style="display:none;" aria-hidden="true">
+        <div id="photo-mode-header" class="mode-panel__header">Photo</div>
+        <div id="photo-mode-controls" class="mode-panel__body">
+            Drag to orbit · scroll to zoom<br>
+            <kbd>F</kbd> filter: <span id="filter-name">None</span><br>
+            <kbd>Space</kbd> export · <kbd>P</kbd> exit
         </div>
         <div id="photo-vignette"></div>
     </div>
 
-    <!-- Meditation UI -->
-    <div id="meditation-ui" style="display:none;">
-        <div id="meditation-header">🧘 Meditation</div>
-        <div id="meditation-hint">Press N to exit</div>
+    <div id="meditation-ui" class="mode-panel" style="display:none;" aria-hidden="true">
+        <div id="meditation-header" class="mode-panel__header">Rest</div>
+        <p id="meditation-hint"><kbd>N</kbd> to exit</p>
     </div>
 
-    <!-- Breathing Guide -->
     <div id="breathing-guide" style="display:none;">
         <div id="breathing-circle"></div>
-        <div id="breathing-text">Breathe in...</div>
+        <div id="breathing-text">Inhale</div>
     </div>
 
-    <!-- Pause Menu -->
-    <div id="pause-menu" role="dialog" aria-modal="true" aria-labelledby="pause-title" aria-hidden="true">
-        <div id="pause-content">
-            <div id="pause-title">⏸ Paused</div>
-            <button id="pause-resume" class="pause-btn">Resume</button>
-            <div id="pause-stats"></div>
-            <div id="pause-controls-info">
-                <div><span class="key">W A S D</span> Walk</div>
-                <div><span class="key">P</span> Photo Mode</div>
-                <div><span class="key">N</span> Meditation</div>
-                <div><span class="key">J</span> Journal</div>
-                <div><span class="key">M</span> Toggle Sound</div>
-                <div><span class="key">B</span> Ambient mood</div>
-                <div class="minigame-hint"><span class="key">G</span> Treasure hunt</div>
-                <div><span class="key">Esc</span> Pause/Resume</div>
-                <div><span class="key">Right Click</span> Interact with flowers</div>
+    <div id="pause-menu" class="modal-scrim" role="dialog" aria-modal="true" aria-labelledby="pause-title" aria-hidden="true">
+        <div id="pause-content" class="modal" tabindex="-1">
+            <header class="modal__header">
+                <div>
+                    <span class="modal__eyebrow">Session</span>
+                    <h2 id="pause-title" class="modal__title">Paused</h2>
+                </div>
+            </header>
+            <div class="modal__body">
+                <button type="button" id="pause-resume" class="btn pause-btn">Resume</button>
+                <div id="pause-stats"></div>
+                <div id="pause-controls-info">
+                    <div><kbd>WASD</kbd> Move</div>
+                    <div><kbd>P</kbd> Photo</div>
+                    <div><kbd>N</kbd> Rest</div>
+                    <div><kbd>J</kbd> Journal</div>
+                    <div><kbd>M</kbd> Sound</div>
+                    <div><kbd>B</kbd> Ambience</div>
+                    <div class="minigame-hint"><kbd>G</kbd> Activity</div>
+                    <div><kbd>Esc</kbd> Resume</div>
+                    <div><kbd>RMB</kbd> Flowers</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Discovery Journal -->
-    <div id="journal-overlay" role="dialog" aria-modal="true" aria-labelledby="journal-heading" aria-hidden="true">
-        <div id="journal-content">
-            <div id="journal-header">
-                <span id="journal-heading">📖 Discovery Journal</span>
-                <button id="journal-close" class="journal-btn">✕</button>
+    <div id="journal-overlay" class="modal-scrim" role="dialog" aria-modal="true" aria-labelledby="journal-heading" aria-hidden="true">
+        <div id="journal-content" class="modal" tabindex="-1">
+            <header id="journal-header" class="modal__header">
+                <div>
+                    <span class="modal__eyebrow">Log</span>
+                    <h2 id="journal-heading" class="modal__title">Journal</h2>
+                </div>
+                <button type="button" id="journal-close" class="modal__close journal-btn" aria-label="Close journal">×</button>
+            </header>
+            <div class="modal__body">
+                <div id="journal-tabs">
+                    <button type="button" class="journal-tab active" data-tab="discoveries">Places</button>
+                    <button type="button" class="journal-tab" data-tab="achievements">Marks</button>
+                </div>
+                <div id="journal-discoveries" class="journal-section"></div>
+                <div id="journal-achievements" class="journal-section" style="display:none;"></div>
             </div>
-            <div id="journal-tabs">
-                <button class="journal-tab active" data-tab="discoveries">Discoveries</button>
-                <button class="journal-tab" data-tab="achievements">Achievements</button>
-            </div>
-            <div id="journal-discoveries" class="journal-section"></div>
-            <div id="journal-achievements" class="journal-section" style="display:none;"></div>
         </div>
     </div>
 
-    <!-- Loading screen with progress bar -->
     <div id="loading-screen">
         <div id="loading-content">
-            <div id="loading-title">🌇</div>
-            <div id="loading-text">Loading your peaceful walk...</div>
-            <div id="loading-bar">
+            <div id="loading-title">Stroll</div>
+            <p id="loading-text">Preparing scene</p>
+            <div id="loading-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
                 <div id="loading-bar-fill"></div>
             </div>
-            <button type="button" id="loading-retry" class="loading-retry">Try again</button>
+            <button type="button" id="loading-retry" class="btn loading-retry">Reload</button>
         </div>
     </div>
 
-    <!-- Mobile controls -->
     <div id="mobile-controls">
         <div id="joystick-area">
             <div id="joystick-base">
@@ -153,7 +171,6 @@
         </div>
     </div>
 
-    <!-- Import map so bare "three" specifiers inside CDN addons resolve correctly -->
     <script type="importmap">
     {
         "imports": {
@@ -162,8 +179,6 @@
         }
     }
     </script>
-
-    <!-- ES Module entry point (Three.js loaded via import map) -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

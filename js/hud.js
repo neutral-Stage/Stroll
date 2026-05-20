@@ -37,9 +37,9 @@ export function updateHUD(state) {
     if (timeEl) {
         const phase = state.cycleTime || 0;
         const nightAmount = Math.sin(phase * Math.PI);
-        let timeStr = 'Golden Hour';
-        if (nightAmount > 0.8) timeStr = 'Midnight';
-        else if (nightAmount > 0.5) timeStr = 'Night';
+        let timeStr = 'Dusk';
+        if (nightAmount > 0.8) timeStr = 'Night';
+        else if (nightAmount > 0.5) timeStr = 'Late';
         else if (nightAmount > 0.2) timeStr = 'Dusk';
         else if (phase > 0.5) timeStr = 'Dawn';
         timeEl.textContent = timeStr;
@@ -97,7 +97,7 @@ export function updatePauseStats(snapshot) {
 
     el.innerHTML = [
         row('Score', snapshot.score),
-        row('Treasures', `${snapshot.collected} / ${snapshot.totalCollectibles}`),
+        row('Found', `${snapshot.collected} / ${snapshot.totalCollectibles}`),
         row('Waypoints', `${snapshot.waypointsFound} / ${snapshot.totalWaypoints}`),
         row('Distance', `${snapshot.distanceWalked}m`),
         row('Photos', snapshot.photosTaken),
@@ -151,8 +151,8 @@ export function toggleJournal(discoveries, achievements, achievementList) {
         const discList = document.getElementById('journal-discoveries');
         if (discList) {
             discList.innerHTML = discoveries.length > 0
-                ? discoveries.map(d => `<div class="journal-item">📍 ${d}</div>`).join('')
-                : '<div class="journal-empty">No discoveries yet. Explore the city!</div>';
+                ? discoveries.map(d => `<div class="journal-item journal-discovery">${d}</div>`).join('')
+                : '<p class="journal-empty">No places logged yet.</p>';
         }
 
         // Populate achievements
@@ -160,10 +160,11 @@ export function toggleJournal(discoveries, achievements, achievementList) {
         if (achList) {
             achList.innerHTML = achievementList.map(a => {
                 const unlocked = achievements.includes(a.id);
+                const badge = unlocked ? (a.badge || '·') : '—';
                 return `<div class="journal-item ${unlocked ? 'unlocked' : 'locked'}">
-                    <span class="ach-icon">${unlocked ? a.icon : '🔒'}</span>
+                    <span class="ach-badge" aria-hidden="true">${badge}</span>
                     <span class="ach-name">${a.name}</span>
-                    <span class="ach-desc">${unlocked ? a.desc : '???'}</span>
+                    <span class="ach-desc">${unlocked ? a.desc : 'Not yet unlocked'}</span>
                 </div>`;
             }).join('');
         }
@@ -184,13 +185,12 @@ export function toggleJournal(discoveries, achievements, achievementList) {
 
 /**
  * Show a toast notification.
- * @param {string} icon
  * @param {string} title
- * @param {string} message
- * @param {string} [type='info'] - 'achievement', 'discovery', 'info'
+ * @param {string} [message]
+ * @param {'achievement'|'discovery'|'info'} [type='info']
  */
-export function showToast(icon, title, message, type = 'info') {
-    toastQueue.push({ icon, title, message, type });
+export function showToast(title, message = '', type = 'info') {
+    toastQueue.push({ title, message, type });
     if (!toastActive) processToastQueue();
 }
 
@@ -207,13 +207,10 @@ function processToastQueue() {
 
     const el = document.createElement('div');
     el.className = `toast toast-${toast.type}`;
-    el.innerHTML = `
-        <span class="toast-icon">${toast.icon}</span>
-        <div class="toast-content">
-            <div class="toast-title">${toast.title}</div>
-            <div class="toast-message">${toast.message}</div>
-        </div>
-    `;
+    const msg = toast.message
+        ? `<p class="toast__message">${toast.message}</p>`
+        : '';
+    el.innerHTML = `<p class="toast__title">${toast.title}</p>${msg}`;
 
     container.appendChild(el);
 

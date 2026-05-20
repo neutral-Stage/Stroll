@@ -390,12 +390,12 @@ function showGameUI(gameType) {
     }
 
     const titles = {
-        [GAMES.MEMORY]: '🧠 Memory Match',
-        [GAMES.RHYTHM]: '🎵 Rhythm Flow',
-        [GAMES.TREASURE]: '🗺️ Treasure Hunt',
-        [GAMES.PHOTO]: '📸 Photo Challenge',
-        [GAMES.BREATHING]: '🧘 Breathing Exercise',
-        [GAMES.CONSTELLATION]: '⭐ Star Gazing'
+        [GAMES.MEMORY]: 'Memory',
+        [GAMES.RHYTHM]: 'Rhythm',
+        [GAMES.TREASURE]: 'Treasure hunt',
+        [GAMES.PHOTO]: 'Photo task',
+        [GAMES.BREATHING]: 'Breathing',
+        [GAMES.CONSTELLATION]: 'Constellations',
     };
 
     ui.innerHTML = `
