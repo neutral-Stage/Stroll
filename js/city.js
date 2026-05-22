@@ -43,6 +43,9 @@ const pathMat = new THREE.MeshLambertMaterial({ color: 0xBCAAA4 });
 // Shared geometries
 const windowGeo = new THREE.PlaneGeometry(WINDOW_SIZE, WINDOW_SIZE * WINDOW_ASPECT);
 
+// Shared geometries for optimization
+const sharedBuildingGeo = new THREE.BoxGeometry(1, 1, 1);
+
 /** @type {Array<{x:number, z:number, width:number, depth:number, height:number}>} */
 export const buildings = [];
 
@@ -109,15 +112,15 @@ function generateBlock(scene, bx, bz) {
 }
 
 function createBuilding(scene, x, height, z, width, depth, colorIdx) {
-    const geo = new THREE.BoxGeometry(width, height, depth);
     const mat = buildingMats[colorIdx];
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(sharedBuildingGeo, mat);
+    mesh.scale.set(width, height, depth);
     mesh.position.set(x, height / 2, z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     scene.add(mesh);
 
-    buildings.push({ x, z, width, depth, height });
+    buildings.push({ x, z, width, depth, height, mesh, intact: true, health: 1000, material: mat });
 
     // Collect window transforms (will be batched into InstancedMesh later)
     collectWindows(x, height, z, width, depth);
@@ -220,6 +223,44 @@ function addRooftopDetail(scene, x, height, z, width, depth) {
     );
     detail.castShadow = true;
     scene.add(detail);
+}
+
+export function damageBuildingAtPoint(scene, x, y, z, radius, damage) {
+    for (const b of buildings) {
+        if (!b.intact) continue;
+        const dist = Math.sqrt((b.x - x)**2 + (b.z - z)**2);
+        const approxRadius = Math.max(b.width, b.depth) / 2;
+        if (dist < radius + approxRadius && y < b.height) {
+            b.health -= damage;
+            if (b.health <= 0) {
+                destroyBuilding(scene, b);
+            }
+        }
+    }
+}
+
+function destroyBuilding(scene, b) {
+    b.intact = false;
+    scene.remove(b.mesh);
+    if (b.mesh.geometry) b.mesh.geometry.dispose();
+
+    // Spawn 10-20 rubble chunks
+    const chunks = 10 + Math.random() * 10;
+    const chunkGeo = new THREE.BoxGeometry(b.width / 2, 2, b.depth / 2);
+    
+    for (let i = 0; i < chunks; i++) {
+        const chunk = new THREE.Mesh(chunkGeo, b.material);
+        chunk.position.set(
+            b.x + (Math.random() - 0.5) * b.width * 0.5,
+            Math.random() * b.height * 0.5,
+            b.z + (Math.random() - 0.5) * b.depth * 0.5
+        );
+        chunk.rotation.set(Math.random(), Math.random(), Math.random());
+        scene.add(chunk);
+        
+        // Very basic physics representation - add to a list if we want them to fall, 
+        // or just let them stay static as "rubble"
+    }
 }
 
 // ── Sidewalks (merged into single mesh) ──────────────────────
@@ -577,3 +618,5 @@ function lerpHex(a, b, t) {
     const bl = Math.round(ab + (bb - ab) * t);
     return (r << 16) | (g << 8) | bl;
 }
+
+

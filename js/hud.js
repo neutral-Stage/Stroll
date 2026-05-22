@@ -1,248 +1,356 @@
 /**
- * hud.js — HUD, compass, pause menu, achievements, toast notifications
- *
+ * hud.js — GTA-style action game HUD
+ * Minimap, health/armor bars, weapon info, wanted stars, damage indicator, death screen
  * @module hud
  */
 
-import { activateFocusTrap, deactivateFocusTrap } from './focus-trap.js';
-import { prefersReducedMotion } from './accessibility.js';
+import { MINIMAP_SIZE, MINIMAP_RANGE, WANTED_LEVELS, HALF_CITY } from './config.js';
 
-/** @type {boolean} */
+let canvas2d = null;
+let ctx2d = null;
 let isPaused = false;
-let journalOpen = false;
+let pauseStatsProvider = null;
 
-/** Toast queue */
-const toastQueue = [];
-let toastActive = false;
+// ── DOM elements (cached) ────────────────────────────────────
+const el = {};
 
 /**
- * Update the HUD elements each frame.
- * @param {object} state
+ * Initialize HUD by caching DOM references.
  */
-export function updateHUD(state) {
-    // Score
-    const scoreEl = document.getElementById('hud-score');
-    if (scoreEl) scoreEl.textContent = state.score || 0;
+export function initHUD() {
+    el.healthBar = document.getElementById('health-bar-fill');
+    el.healthText = document.getElementById('health-text');
+    el.armorBar = document.getElementById('armor-bar-fill');
+    el.armorText = document.getElementById('armor-text');
+    el.staminaBar = document.getElementById('stamina-bar-fill');
+    el.cash = document.getElementById('cash-display');
+    el.level = document.getElementById('level-display');
+    el.xpBar = document.getElementById('xp-bar-fill');
+    el.ammoClip = document.getElementById('ammo-clip');
+    el.ammoReserve = document.getElementById('ammo-reserve');
+    el.weaponName = document.getElementById('weapon-name');
+    el.wantedStars = document.getElementById('wanted-stars');
+    el.minimap = document.getElementById('minimap');
+    el.crosshair = document.getElementById('crosshair');
+    el.damageOverlay = document.getElementById('damage-overlay');
+    el.deathScreen = document.getElementById('death-screen');
+    el.deathTimer = document.getElementById('death-timer');
+    el.toastContainer = document.getElementById('toast-container');
+    el.compass = document.getElementById('compass-heading');
+    el.killFeed = document.getElementById('kill-feed');
+    el.missionText = document.getElementById('mission-text');
 
-    // Collectibles
-    const collectEl = document.getElementById('hud-collected');
-    if (collectEl) collectEl.textContent = `${state.collected || 0}/${state.totalCollectibles || 0}`;
+    // Minimap canvas
+    canvas2d = document.getElementById('minimap-canvas');
+    if (canvas2d) {
+        canvas2d.width = MINIMAP_SIZE;
+        canvas2d.height = MINIMAP_SIZE;
+        ctx2d = canvas2d.getContext('2d');
+    }
+}
 
-    // Waypoints
-    const waypointEl = document.getElementById('hud-waypoints');
-    if (waypointEl) waypointEl.textContent = `${state.waypointsFound || 0}/${state.totalWaypoints || 0}`;
+/**
+ * Update the HUD each frame.
+ * @param {Object} stats - Player stats
+ * @param {Object} weaponInfo - { name, ammoClip, ammoReserve, maxClip }
+ * @param {number} wantedLevel - 0-5
+ * @param {Object} camera - Camera for compass
+ * @param {Object} playerPos - { x, z }
+ * @param {Array} enemies - Array of { x, z, type }
+ * @param {Object} buildings - Array of building rects for minimap
+ * @param {Object} damageDir - { angle, active }
+ */
+export function updateHUD(stats, weaponInfo, wantedLevel, camera, playerPos, enemies, buildings, damageDir, missionMarker) {
+    // Health bar
+    if (el.healthBar) {
+        const pct = (stats.health / stats.maxHealth) * 100;
+        el.healthBar.style.width = `${pct}%`;
+        el.healthBar.style.background = pct > 50
+            ? `linear-gradient(90deg, #00cc44, #44ff66)`
+            : pct > 25
+                ? `linear-gradient(90deg, #cc8800, #ffaa00)`
+                : `linear-gradient(90deg, #cc0000, #ff4444)`;
+    }
+    if (el.healthText) el.healthText.textContent = Math.ceil(stats.health);
 
-    // Time of day
-    const timeEl = document.getElementById('hud-time');
-    if (timeEl) {
-        const phase = state.cycleTime || 0;
-        const nightAmount = Math.sin(phase * Math.PI);
-        let timeStr = 'Dusk';
-        if (nightAmount > 0.8) timeStr = 'Night';
-        else if (nightAmount > 0.5) timeStr = 'Late';
-        else if (nightAmount > 0.2) timeStr = 'Dusk';
-        else if (phase > 0.5) timeStr = 'Dawn';
-        timeEl.textContent = timeStr;
+    // Armor bar
+    if (el.armorBar) {
+        const pct = (stats.armor / stats.maxArmor) * 100;
+        el.armorBar.style.width = `${pct}%`;
+    }
+    if (el.armorText) el.armorText.textContent = Math.ceil(stats.armor);
+
+    // Stamina bar
+    if (el.staminaBar) {
+        const pct = (stats.stamina / stats.maxStamina) * 100;
+        el.staminaBar.style.width = `${pct}%`;
+    }
+
+    // Cash
+    if (el.cash) el.cash.textContent = `$${stats.cash.toLocaleString()}`;
+
+    // Level & XP
+    if (el.level) el.level.textContent = `LVL ${stats.level}`;
+    if (el.xpBar) {
+        const pct = ((stats.xp - (stats.xpForPrev || 0)) / ((stats.xpForNext || 100) - (stats.xpForPrev || 0))) * 100;
+        el.xpBar.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+    }
+
+    // Weapon info
+    if (el.weaponName) el.weaponName.textContent = weaponInfo.name || 'Fists';
+    if (el.ammoClip) el.ammoClip.textContent = weaponInfo.ammoClip === Infinity ? '∞' : weaponInfo.ammoClip;
+    if (el.ammoReserve) el.ammoReserve.textContent = weaponInfo.ammoReserve === Infinity ? '' : `/ ${weaponInfo.ammoReserve}`;
+
+    // Wanted stars
+    if (el.wantedStars) {
+        let stars = '';
+        for (let i = 0; i < WANTED_LEVELS; i++) {
+            stars += i < wantedLevel
+                ? '<span class="star active">★</span>'
+                : '<span class="star">☆</span>';
+        }
+        el.wantedStars.innerHTML = stars;
     }
 
     // Compass
-    updateCompass(state.playerYaw || 0);
-}
-
-function updateCompass(yaw) {
-    const needle = document.getElementById('compass-needle');
-    if (!needle) return;
-
-    // Yaw is in radians, convert to degrees
-    const degrees = (yaw * 180 / Math.PI) % 360;
-    needle.style.transform = `rotate(${degrees}deg)`;
-
-    // Cardinal direction text
-    const dirEl = document.getElementById('compass-dir');
-    if (dirEl) {
-        const normalized = (((-yaw * 180 / Math.PI) % 360) + 360) % 360;
-        let dir = 'N';
-        if (normalized > 337.5 || normalized <= 22.5) dir = 'N';
-        else if (normalized > 22.5 && normalized <= 67.5) dir = 'NE';
-        else if (normalized > 67.5 && normalized <= 112.5) dir = 'E';
-        else if (normalized > 112.5 && normalized <= 157.5) dir = 'SE';
-        else if (normalized > 157.5 && normalized <= 202.5) dir = 'S';
-        else if (normalized > 202.5 && normalized <= 247.5) dir = 'SW';
-        else if (normalized > 247.5 && normalized <= 292.5) dir = 'W';
-        else if (normalized > 292.5 && normalized <= 337.5) dir = 'NW';
-        dirEl.textContent = dir;
-    }
-}
-
-/** @type {function(): object|null} */
-let pauseStatsProvider = null;
-
-/**
- * Register a function that returns current stats for the pause menu.
- * @param {function(): object} provider
- */
-export function setPauseStatsProvider(provider) {
-    pauseStatsProvider = provider;
-}
-
-/**
- * @param {object} snapshot
- */
-export function updatePauseStats(snapshot) {
-    const el = document.getElementById('pause-stats');
-    if (!el || !snapshot) return;
-
-    const row = (label, value) =>
-        `<div class="pause-stat-row"><span class="pause-stat-label">${label}</span><span class="pause-stat-value">${value}</span></div>`;
-
-    el.innerHTML = [
-        row('Score', snapshot.score),
-        row('Found', `${snapshot.collected} / ${snapshot.totalCollectibles}`),
-        row('Waypoints', `${snapshot.waypointsFound} / ${snapshot.totalWaypoints}`),
-        row('Distance', `${snapshot.distanceWalked}m`),
-        row('Photos', snapshot.photosTaken),
-        row('Achievements', `${snapshot.achievementsUnlocked} / ${snapshot.achievementsTotal}`),
-    ].join('');
-}
-
-/**
- * Toggle pause menu.
- * @returns {boolean} new paused state
- */
-export function togglePause() {
-    isPaused = !isPaused;
-    const menu = document.getElementById('pause-menu');
-    const pauseContent = document.getElementById('pause-content');
-
-    if (menu) {
-        menu.classList.toggle('is-open', isPaused);
-        menu.setAttribute('aria-hidden', isPaused ? 'false' : 'true');
+    if (el.compass && camera) {
+        const yaw = camera.rotation.y;
+        const deg = (((-yaw * 180 / Math.PI) % 360) + 360) % 360;
+        const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+        const idx = Math.round(deg / 45) % 8;
+        el.compass.textContent = `${dirs[idx]} ${Math.round(deg)}°`;
     }
 
-    if (isPaused) {
-        if (pauseStatsProvider) {
-            updatePauseStats(pauseStatsProvider());
-        }
-        if (pauseContent) activateFocusTrap(pauseContent);
-    } else {
-        deactivateFocusTrap();
-    }
-
-    return isPaused;
-}
-
-/**
- * Toggle discovery journal.
- * @param {Array<string>} discoveries
- * @param {Array<string>} achievements
- * @param {Array<object>} achievementList
- */
-export function toggleJournal(discoveries, achievements, achievementList) {
-    journalOpen = !journalOpen;
-    const journal = document.getElementById('journal-overlay');
-    const journalContent = document.getElementById('journal-content');
-    if (!journal) return;
-
-    if (journalOpen) {
-        journal.classList.add('is-open');
-        journal.setAttribute('aria-hidden', 'false');
-
-        // Populate discoveries
-        const discList = document.getElementById('journal-discoveries');
-        if (discList) {
-            discList.innerHTML = discoveries.length > 0
-                ? discoveries.map(d => `<div class="journal-item journal-discovery">${d}</div>`).join('')
-                : '<p class="journal-empty">No places logged yet.</p>';
-        }
-
-        // Populate achievements
-        const achList = document.getElementById('journal-achievements');
-        if (achList) {
-            achList.innerHTML = achievementList.map(a => {
-                const unlocked = achievements.includes(a.id);
-                const badge = unlocked ? (a.badge || '·') : '—';
-                return `<div class="journal-item ${unlocked ? 'unlocked' : 'locked'}">
-                    <span class="ach-badge" aria-hidden="true">${badge}</span>
-                    <span class="ach-name">${a.name}</span>
-                    <span class="ach-desc">${unlocked ? a.desc : 'Not yet unlocked'}</span>
-                </div>`;
-            }).join('');
-        }
-
-        if (journalContent) activateFocusTrap(journalContent);
-    } else {
-        journal.classList.remove('is-open');
-        journal.setAttribute('aria-hidden', 'true');
-        deactivateFocusTrap();
-        if (isPaused) {
-            const pauseContent = document.getElementById('pause-content');
-            if (pauseContent) activateFocusTrap(pauseContent);
+    // Damage overlay direction
+    if (el.damageOverlay && damageDir) {
+        if (damageDir.active) {
+            el.damageOverlay.style.opacity = '1';
+            // Rotate overlay to show damage direction
+            const deg = (damageDir.angle * 180 / Math.PI);
+            el.damageOverlay.style.background = `conic-gradient(
+                from ${deg - 30}deg,
+                transparent 0deg,
+                rgba(255, 0, 0, 0.4) 15deg,
+                rgba(255, 0, 0, 0.6) 30deg,
+                rgba(255, 0, 0, 0.4) 45deg,
+                transparent 60deg
+            )`;
+        } else {
+            el.damageOverlay.style.opacity = '0';
         }
     }
 
-    return journalOpen;
+    // Draw minimap
+    drawMinimap(playerPos, camera, enemies, buildings, missionMarker);
+}
+
+function drawMinimap(playerPos, camera, enemies, buildings, missionMarker) {
+    if (!ctx2d) return;
+    const S = MINIMAP_SIZE;
+    const halfS = S / 2;
+    const scale = S / (MINIMAP_RANGE * 2);
+
+    ctx2d.clearRect(0, 0, S, S);
+
+    // Background
+    ctx2d.fillStyle = 'rgba(10, 10, 15, 0.85)';
+    ctx2d.beginPath();
+    ctx2d.arc(halfS, halfS, halfS, 0, Math.PI * 2);
+    ctx2d.fill();
+
+    // Buildings (as rects)
+    ctx2d.fillStyle = 'rgba(60, 60, 80, 0.7)';
+    if (buildings) {
+        for (const b of buildings) {
+            const rx = (b.x - playerPos.x) * scale + halfS;
+            const rz = (b.z - playerPos.z) * scale + halfS;
+            const rw = b.width * scale;
+            const rd = b.depth * scale;
+
+            // Skip if outside minimap circle
+            if (Math.abs(rx - halfS) > halfS + rw || Math.abs(rz - halfS) > halfS + rd) continue;
+
+            ctx2d.fillRect(rx - rw / 2, rz - rd / 2, rw, rd);
+        }
+    }
+
+    // Enemies (red dots)
+    if (enemies) {
+        ctx2d.fillStyle = '#ff4444';
+        for (const e of enemies) {
+            const ex = (e.x - playerPos.x) * scale + halfS;
+            const ez = (e.z - playerPos.z) * scale + halfS;
+            const dist = Math.sqrt((ex - halfS) ** 2 + (ez - halfS) ** 2);
+            if (dist > halfS - 4) continue;
+
+            ctx2d.beginPath();
+            ctx2d.arc(ex, ez, 2.5, 0, Math.PI * 2);
+            ctx2d.fill();
+        }
+    }
+
+    // Mission marker (yellow dot)
+    if (missionMarker) {
+        ctx2d.fillStyle = '#ffcc00';
+        const mx = (missionMarker.x - playerPos.x) * scale + halfS;
+        const mz = (missionMarker.z - playerPos.z) * scale + halfS;
+        
+        // Clamp to circle edge if outside
+        const dist = Math.sqrt((mx - halfS) ** 2 + (mz - halfS) ** 2);
+        let drawX = mx;
+        let drawZ = mz;
+        if (dist > halfS - 6) {
+            const angle = Math.atan2(mz - halfS, mx - halfS);
+            drawX = halfS + Math.cos(angle) * (halfS - 6);
+            drawZ = halfS + Math.sin(angle) * (halfS - 6);
+        }
+        
+        ctx2d.beginPath();
+        ctx2d.arc(drawX, drawZ, 4, 0, Math.PI * 2);
+        ctx2d.fill();
+        ctx2d.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx2d.lineWidth = 1;
+        ctx2d.stroke();
+    }
+
+    // Player (white triangle)
+    ctx2d.save();
+    ctx2d.translate(halfS, halfS);
+    const yaw = camera ? -camera.rotation.y : 0;
+    ctx2d.rotate(yaw);
+    ctx2d.fillStyle = '#ffffff';
+    ctx2d.beginPath();
+    ctx2d.moveTo(0, -6);
+    ctx2d.lineTo(-4, 4);
+    ctx2d.lineTo(4, 4);
+    ctx2d.closePath();
+    ctx2d.fill();
+    ctx2d.restore();
+
+    // Border ring
+    ctx2d.strokeStyle = 'rgba(120, 120, 140, 0.5)';
+    ctx2d.lineWidth = 2;
+    ctx2d.beginPath();
+    ctx2d.arc(halfS, halfS, halfS - 1, 0, Math.PI * 2);
+    ctx2d.stroke();
+
+    // Clip to circle
+    ctx2d.globalCompositeOperation = 'destination-in';
+    ctx2d.fillStyle = '#fff';
+    ctx2d.beginPath();
+    ctx2d.arc(halfS, halfS, halfS, 0, Math.PI * 2);
+    ctx2d.fill();
+    ctx2d.globalCompositeOperation = 'source-over';
+}
+
+/**
+ * Show the death screen.
+ * @param {number} respawnTime - Seconds until respawn
+ */
+export function showDeathScreen(respawnTime) {
+    if (el.deathScreen) {
+        el.deathScreen.classList.add('active');
+    }
+    if (el.deathTimer) {
+        el.deathTimer.textContent = Math.ceil(respawnTime);
+    }
+}
+
+/**
+ * Hide the death screen.
+ */
+export function hideDeathScreen() {
+    if (el.deathScreen) {
+        el.deathScreen.classList.remove('active');
+    }
 }
 
 /**
  * Show a toast notification.
  * @param {string} title
- * @param {string} [message]
- * @param {'achievement'|'discovery'|'info'} [type='info']
+ * @param {string} message
+ * @param {string} [type='info'] - 'info', 'achievement', 'kill', 'mission', 'level'
  */
-export function showToast(title, message = '', type = 'info') {
-    toastQueue.push({ title, message, type });
-    if (!toastActive) processToastQueue();
-}
+export function showToast(title, message, type = 'info') {
+    if (!el.toastContainer) return;
 
-function processToastQueue() {
-    if (toastQueue.length === 0) {
-        toastActive = false;
-        return;
-    }
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `<strong>${title}</strong><span>${message}</span>`;
+    el.toastContainer.appendChild(toast);
 
-    toastActive = true;
-    const toast = toastQueue.shift();
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-
-    const el = document.createElement('div');
-    el.className = `toast toast-${toast.type}`;
-    const msg = toast.message
-        ? `<p class="toast__message">${toast.message}</p>`
-        : '';
-    el.innerHTML = `<p class="toast__title">${toast.title}</p>${msg}`;
-
-    container.appendChild(el);
-
-    const reduced = prefersReducedMotion();
-    const showMs = reduced ? 0 : 0;
-    const visibleMs = reduced ? 2200 : 3000;
-    const hideMs = reduced ? 0 : 500;
-
-    requestAnimationFrame(() => {
-        el.classList.add('toast-show');
-    });
+    requestAnimationFrame(() => toast.classList.add('visible'));
 
     setTimeout(() => {
-        if (!reduced) el.classList.add('toast-hide');
-        setTimeout(() => {
-            el.remove();
-            processToastQueue();
-        }, hideMs);
-    }, visibleMs + showMs);
+        toast.classList.remove('visible');
+        setTimeout(() => toast.remove(), 400);
+    }, 3500);
 }
 
-export function getIsPaused() { return isPaused; }
-export function isJournalOpen() { return journalOpen; }
+/**
+ * Add a kill feed entry.
+ * @param {string} text
+ */
+export function addKillFeed(text) {
+    if (!el.killFeed) return;
+    const entry = document.createElement('div');
+    entry.className = 'kill-feed-entry';
+    entry.textContent = text;
+    el.killFeed.appendChild(entry);
+
+    setTimeout(() => {
+        entry.classList.add('fade-out');
+        setTimeout(() => entry.remove(), 500);
+    }, 4000);
+
+    // Max 5 entries
+    while (el.killFeed.children.length > 5) {
+        el.killFeed.removeChild(el.killFeed.firstChild);
+    }
+}
 
 /**
- * Set up pause menu button handlers.
+ * Show mission text.
+ * @param {string} text
+ * @param {number} [duration=3]
  */
+export function showMissionText(text, duration = 3) {
+    if (el.missionText) {
+        el.missionText.textContent = text;
+        el.missionText.classList.add('visible');
+        setTimeout(() => el.missionText.classList.remove('visible'), duration * 1000);
+    }
+}
+
+/** Toggle pause menu */
+export function togglePause() {
+    isPaused = !isPaused;
+    const pauseEl = document.getElementById('pause-menu');
+    if (pauseEl) pauseEl.classList.toggle('active', isPaused);
+    return isPaused;
+}
+
+/** @returns {boolean} */
+export function getIsPaused() { return isPaused; }
+
+/** Set pause stats provider */
+export function setPauseStatsProvider(fn) { pauseStatsProvider = fn; }
+
+/** Setup pause menu */
 export function setupPauseMenu() {
-    const resumeBtn = document.getElementById('pause-resume');
+    const resumeBtn = document.getElementById('resume-btn');
     if (resumeBtn) {
         resumeBtn.addEventListener('click', () => {
-            togglePause();
+            isPaused = false;
+            const pauseEl = document.getElementById('pause-menu');
+            if (pauseEl) pauseEl.classList.remove('active');
         });
     }
 }
+
+/** Check if journal is open (legacy compat) */
+export function isJournalOpen() { return false; }
+
+/** Toggle journal (legacy compat — removed in action game) */
+export function toggleJournal() { return false; }
+

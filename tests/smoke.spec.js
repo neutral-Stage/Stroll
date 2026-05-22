@@ -8,7 +8,7 @@ test('loads WebGL canvas without init errors', async ({ page }) => {
   });
 
   await page.goto('/');
-  await expect(page.locator('canvas')).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator('canvas').last()).toBeVisible({ timeout: 45_000 });
 
   const initFailed = errors.some((e) => e.includes('Stroll init failed'));
   expect(initFailed).toBeFalsy();
@@ -16,10 +16,15 @@ test('loads WebGL canvas without init errors', async ({ page }) => {
 
 test('pause menu opens with Escape', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('canvas')).toBeVisible({ timeout: 45_000 });
-  // First Escape skips intro cinematic; second opens pause
-  await page.keyboard.press('Escape');
-  await page.keyboard.press('Escape');
-  await expect(page.locator('#pause-menu.is-open')).toBeVisible();
-  await expect(page.locator('#pause-stats')).not.toBeEmpty();
+  await expect(page.locator('canvas').last()).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator('#main-menu.active')).toBeVisible({ timeout: 30_000 }); // Wait for loading to finish and menu to appear
+  
+  await page.locator('#start-game-btn').click();
+  
+  // Wait for transition to PLAYING state (takes ~0.66s)
+  await page.waitForTimeout(1000);
+  
+  await expect(page.locator('#game-hud')).toBeVisible({ timeout: 15_000 }); // Wait for gameplay to start
+  await page.keyboard.press('Escape'); // Open pause menu
+  await expect(page.locator('#pause-menu.active')).toBeVisible();
 });

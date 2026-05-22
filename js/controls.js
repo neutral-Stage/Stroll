@@ -20,7 +20,7 @@ import { isInsideBuilding, isBlockedByTree } from './city.js';
 import { canPlayerMove } from './player-input.js';
 
 /** Player state */
-export const player = { x: 0, z: 0, yaw: 0, pitch: 0 };
+export const player = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, vy: 0 };
 
 /** Keyboard state */
 const keys = {};
@@ -80,6 +80,7 @@ export function setupControls(renderer, camera) {
     document.addEventListener('keydown', (e) => {
         keys[e.code] = true;
         keys[e.key] = true;
+        if (e.code === 'Space') keys['Space'] = true;
         // Sound toggle shortcut
         if (e.key === 'm' || e.key === 'M') {
             const toggle = document.getElementById('sound-toggle');
@@ -90,6 +91,7 @@ export function setupControls(renderer, camera) {
     document.addEventListener('keyup', (e) => {
         keys[e.code] = false;
         keys[e.key] = false;
+        if (e.code === 'Space') keys['Space'] = false;
     });
 
     // Pointer lock for mouse look
@@ -235,6 +237,11 @@ export function updatePlayer(delta, camera) {
         moveZ += joystickDelta.y;
     }
 
+    // Ground level detection
+    const bound = CITY_SIZE / 2;
+    const isWater = (player.x > bound || player.x < -bound || player.z > bound || player.z < -bound);
+    const groundLevel = isWater ? -1.8 : 0; // -1.8 so camera is slightly above water (-2)
+
     // Normalize
     const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
     if (len > 0) {
@@ -243,12 +250,19 @@ export function updatePlayer(delta, camera) {
     }
 
     // Apply movement relative to camera direction
-    const speed = WALK_SPEED * delta * 60;
+    const baseSpeed = isWater ? (WALK_SPEED * 0.5) : WALK_SPEED;
+    const speed = baseSpeed * delta * 60;
     const sinYaw = Math.sin(player.yaw);
     const cosYaw = Math.cos(player.yaw);
 
     const newX = player.x + (moveX * cosYaw + moveZ * sinYaw) * speed;
     const newZ = player.z + (-moveX * sinYaw + moveZ * cosYaw) * speed;
+
+    // Jump / Vault (only if on solid ground)
+    if (keys['Space'] && player.y === groundLevel && !isWater && canPlayerMove()) {
+        player.vy = 10;
+        keys['Space'] = false; // consume key
+    }
 
     const blocked = (x, z) =>
         isInsideBuilding(x, z, COLLISION_PADDING) || isBlockedByTree(x, z);
@@ -262,15 +276,28 @@ export function updatePlayer(delta, camera) {
         player.z = newZ;
     }
 
-    // Clamp to city bounds
-    const bound = CITY_SIZE / 2 - CITY_BOUND_MARGIN;
-    player.x = Math.max(-bound, Math.min(bound, player.x));
-    player.z = Math.max(-bound, Math.min(bound, player.z));
+    // Clamp to massive ocean bounds instead of city bounds
+    const oceanBound = 1000;
+    player.x = Math.max(-oceanBound, Math.min(oceanBound, player.x));
+    player.z = Math.max(-oceanBound, Math.min(oceanBound, player.z));
+
+    // Gravity for jumping/grappling
+    if (player.y > groundLevel || player.vy !== 0) {
+        player.y += player.vy * delta;
+        player.vy -= 20 * delta; // Gravity
+        if (player.y <= groundLevel) {
+            player.y = groundLevel;
+            player.vy = 0;
+        }
+    } else if (player.y < groundLevel) {
+        player.y = groundLevel; // snap up to new ground level if walked off edge
+        player.vy = 0;
+    }
 
     // Update camera position
-    camera.position.set(player.x, PLAYER_HEIGHT, player.z);
+    camera.position.set(player.x, player.y + PLAYER_HEIGHT, player.z);
 
-    if (len > HEAD_BOB_THRESHOLD) {
+    if (len > HEAD_BOB_THRESHOLD && player.y === 0) {
         bobPhase += delta * HEAD_BOB_SPEED;
         camera.position.y += Math.abs(Math.sin(bobPhase)) * HEAD_BOB_AMOUNT;
     }

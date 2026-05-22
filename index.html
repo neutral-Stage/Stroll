@@ -3,171 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Stroll — a quiet 3D walk through a procedural city at dusk.">
-    <meta name="theme-color" content="#11100f">
-    <title>Stroll</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%2311100f' width='32' height='32' rx='4'/%3E%3Cpath fill='%23b8956c' d='M8 22 L16 8 L24 22 Z' opacity='.9'/%3E%3C/svg%3E">
+    <meta name="description" content="STROLL — Open-world destruction sandbox. Wreak havoc in a procedural city with weapons, vehicles, and total chaos.">
+    <meta name="theme-color" content="#0a0a0f">
+    <title>STROLL — Open World Chaos</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%230a0a0f' width='32' height='32' rx='4'/%3E%3Cpath fill='%23ff4444' d='M8 22 L16 6 L24 22 Z' opacity='.9'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div id="cinematic-overlay" aria-hidden="true">
-        <div id="cinematic-title">Stroll</div>
-        <div id="cinematic-subtitle">Evening walk</div>
-        <div id="cinematic-skip">Skip intro</div>
-    </div>
-
-    <div id="ui-overlay" class="shell">
-        <header class="shell__brand">
-            <h1 id="title" class="shell__title">Stroll</h1>
-            <p id="subtitle" class="shell__tagline">Evening walk</p>
-        </header>
-
-        <aside id="controls-hint" class="shell__help" aria-label="Controls">
-            <div class="help-grid">
-                <div class="help-group">
-                    <span class="help-group__label">Move</span>
-                    <p class="help-group__row"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> walk</p>
-                    <p class="help-group__row">Mouse look · click to capture pointer</p>
-                    <p class="help-group__row weapon-hint"><kbd>LMB</kbd> fire</p>
-                    <p class="help-group__row"><kbd>RMB</kbd> <span id="interact-hint">flowers</span></p>
-                </div>
-                <div class="help-group">
-                    <span class="help-group__label">Modes</span>
-                    <p class="help-group__row"><kbd>M</kbd> sound · <kbd>P</kbd> photo · <kbd>N</kbd> rest</p>
-                    <p class="help-group__row"><kbd>B</kbd> ambience · <kbd>R</kbd> rain</p>
-                    <p class="help-group__row"><kbd>J</kbd> journal · <kbd>Esc</kbd> pause</p>
-                    <p class="help-group__row minigame-hint"><kbd>G</kbd> activity</p>
-                </div>
+    <!-- ═══ MAIN MENU ═══ -->
+    <div id="main-menu" class="menu-screen active">
+        <div class="menu-bg"></div>
+        <div class="menu-content">
+            <h1 class="menu-title">STROLL</h1>
+            <p class="menu-subtitle">Open World Chaos</p>
+            <div class="menu-actions">
+                <button type="button" id="start-game-btn" class="menu-btn menu-btn--primary">
+                    <span class="btn-icon">▶</span> START GAME
+                </button>
+                <button type="button" id="continue-btn" class="menu-btn" style="display:none;">
+                    <span class="btn-icon">↻</span> CONTINUE
+                </button>
             </div>
-            <p class="help-footnote">Pointer lock required for look</p>
-        </aside>
-
-        <p id="thought-bubble" class="shell__thought" aria-live="polite"></p>
-
-        <button type="button" id="sound-toggle" class="sound-toggle" aria-pressed="false" aria-label="Sound off">
-            <span class="sound-toggle__dot" aria-hidden="true"></span>
-            <span class="sound-toggle__label">Sound off</span>
-        </button>
-
-        <div id="crosshair" class="shell__reticle" aria-hidden="true"></div>
-    </div>
-
-    <div id="hud" class="hud" aria-label="Status">
-        <div class="hud__cluster hud__cluster--start">
-            <div class="hud-stat" title="Score">
-                <span class="hud-stat__label">Score</span>
-                <span class="hud-stat__value" id="hud-score">0</span>
-            </div>
-            <div class="hud-stat" title="Collectibles">
-                <span class="hud-stat__label">Found</span>
-                <span class="hud-stat__value" id="hud-collected">0/0</span>
-            </div>
-            <div class="hud-stat" title="Waypoints">
-                <span class="hud-stat__label">Sites</span>
-                <span class="hud-stat__value" id="hud-waypoints">0/0</span>
-            </div>
-        </div>
-        <div class="hud__cluster hud__cluster--center">
-            <div id="compass" class="compass">
-                <div id="compass-ring" class="compass__ring">
-                    <div id="compass-needle" class="compass__needle"></div>
-                    <span id="compass-n" class="compass__north">N</span>
-                </div>
-                <div id="compass-dir" class="compass__heading">N</div>
-            </div>
-        </div>
-        <div class="hud__cluster">
-            <div class="hud-stat" title="Time of day">
-                <span class="hud-stat__label">Light</span>
-                <span class="hud-stat__value" id="hud-time">Dusk</span>
+            <div class="menu-footer">
+                <span>WASD Move · Mouse Look · LMB Shoot · V Camera · Shift Sprint</span>
             </div>
         </div>
     </div>
 
-    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
-
-    <div id="photo-mode-ui" class="mode-panel" style="display:none;" aria-hidden="true">
-        <div id="photo-mode-header" class="mode-panel__header">Photo</div>
-        <div id="photo-mode-controls" class="mode-panel__body">
-            Drag to orbit · scroll to zoom<br>
-            <kbd>F</kbd> filter: <span id="filter-name">None</span><br>
-            <kbd>Space</kbd> export · <kbd>P</kbd> exit
-        </div>
-        <div id="photo-vignette"></div>
-    </div>
-
-    <div id="meditation-ui" class="mode-panel" style="display:none;" aria-hidden="true">
-        <div id="meditation-header" class="mode-panel__header">Rest</div>
-        <p id="meditation-hint"><kbd>N</kbd> to exit</p>
-    </div>
-
-    <div id="breathing-guide" style="display:none;">
-        <div id="breathing-circle"></div>
-        <div id="breathing-text">Inhale</div>
-    </div>
-
-    <div id="pause-menu" class="modal-scrim" role="dialog" aria-modal="true" aria-labelledby="pause-title" aria-hidden="true">
-        <div id="pause-content" class="modal" tabindex="-1">
-            <header class="modal__header">
-                <div>
-                    <span class="modal__eyebrow">Session</span>
-                    <h2 id="pause-title" class="modal__title">Paused</h2>
-                </div>
-            </header>
-            <div class="modal__body">
-                <button type="button" id="pause-resume" class="btn pause-btn">Resume</button>
-                <div id="pause-stats"></div>
-                <div id="pause-controls-info">
-                    <div><kbd>WASD</kbd> Move</div>
-                    <div><kbd>P</kbd> Photo</div>
-                    <div><kbd>N</kbd> Rest</div>
-                    <div><kbd>J</kbd> Journal</div>
-                    <div><kbd>M</kbd> Sound</div>
-                    <div><kbd>B</kbd> Ambience</div>
-                    <div class="minigame-hint"><kbd>G</kbd> Activity</div>
-                    <div><kbd>Esc</kbd> Resume</div>
-                    <div><kbd>RMB</kbd> Flowers</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="journal-overlay" class="modal-scrim" role="dialog" aria-modal="true" aria-labelledby="journal-heading" aria-hidden="true">
-        <div id="journal-content" class="modal" tabindex="-1">
-            <header id="journal-header" class="modal__header">
-                <div>
-                    <span class="modal__eyebrow">Log</span>
-                    <h2 id="journal-heading" class="modal__title">Journal</h2>
-                </div>
-                <button type="button" id="journal-close" class="modal__close journal-btn" aria-label="Close journal">×</button>
-            </header>
-            <div class="modal__body">
-                <div id="journal-tabs">
-                    <button type="button" class="journal-tab active" data-tab="discoveries">Places</button>
-                    <button type="button" class="journal-tab" data-tab="achievements">Marks</button>
-                </div>
-                <div id="journal-discoveries" class="journal-section"></div>
-                <div id="journal-achievements" class="journal-section" style="display:none;"></div>
-            </div>
-        </div>
-    </div>
-
+    <!-- ═══ LOADING SCREEN ═══ -->
     <div id="loading-screen">
         <div id="loading-content">
-            <div id="loading-title">Stroll</div>
-            <p id="loading-text">Preparing scene</p>
+            <div id="loading-title">STROLL</div>
+            <p id="loading-text">Loading city...</p>
             <div id="loading-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
                 <div id="loading-bar-fill"></div>
             </div>
+            <div id="loading-tip" class="loading-tip"></div>
             <button type="button" id="loading-retry" class="btn loading-retry">Reload</button>
         </div>
     </div>
 
+    <!-- ═══ GAME HUD ═══ -->
+    <div id="game-hud" class="game-hud" style="display:none;">
+
+        <!-- Top-left: Health, Armor, Stamina -->
+        <div class="hud-top-left">
+            <div class="hud-bar-group">
+                <div class="hud-bar hud-bar--health">
+                    <span class="hud-bar__icon">❤</span>
+                    <div class="hud-bar__track">
+                        <div class="hud-bar__fill" id="health-bar-fill"></div>
+                    </div>
+                    <span class="hud-bar__text" id="health-text">100</span>
+                </div>
+                <div class="hud-bar hud-bar--armor">
+                    <span class="hud-bar__icon">🛡</span>
+                    <div class="hud-bar__track">
+                        <div class="hud-bar__fill" id="armor-bar-fill"></div>
+                    </div>
+                    <span class="hud-bar__text" id="armor-text">0</span>
+                </div>
+                <div class="hud-bar hud-bar--stamina">
+                    <span class="hud-bar__icon">⚡</span>
+                    <div class="hud-bar__track">
+                        <div class="hud-bar__fill" id="stamina-bar-fill"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="hud-stats-row">
+                <span class="hud-cash" id="cash-display">$500</span>
+                <span class="hud-level" id="level-display">LVL 1</span>
+            </div>
+            <div class="hud-xp-bar">
+                <div class="hud-xp-fill" id="xp-bar-fill"></div>
+            </div>
+        </div>
+
+        <!-- Top-right: Wanted Stars -->
+        <div class="hud-top-right">
+            <div class="wanted-stars" id="wanted-stars">
+                <span class="star">☆</span>
+                <span class="star">☆</span>
+                <span class="star">☆</span>
+                <span class="star">☆</span>
+                <span class="star">☆</span>
+            </div>
+            <div class="compass-simple" id="compass-heading">N 0°</div>
+        </div>
+
+        <!-- Bottom-left: Minimap -->
+        <div class="hud-bottom-left">
+            <div class="minimap-container">
+                <canvas id="minimap-canvas" width="180" height="180"></canvas>
+            </div>
+        </div>
+
+        <!-- Bottom-right: Weapon Info -->
+        <div class="hud-bottom-right">
+            <div class="weapon-hud">
+                <div class="weapon-name" id="weapon-name">9mm Pistol</div>
+                <div class="weapon-ammo">
+                    <span class="ammo-clip" id="ammo-clip">17</span>
+                    <span class="ammo-sep">/</span>
+                    <span class="ammo-reserve" id="ammo-reserve">200</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: Crosshair -->
+        <div id="crosshair" class="crosshair-reticle"></div>
+
+        <!-- Center: Mission text -->
+        <div id="mission-text" class="mission-text"></div>
+
+        <!-- Kill feed (top-right, below stars) -->
+        <div id="kill-feed" class="kill-feed"></div>
+    </div>
+
+    <!-- ═══ DAMAGE OVERLAY ═══ -->
+    <div id="damage-overlay" class="damage-overlay"></div>
+
+    <!-- ═══ FADE OVERLAY ═══ -->
+    <div id="fade-overlay" class="fade-overlay"></div>
+
+    <!-- ═══ DEATH SCREEN ═══ -->
+    <div id="death-screen" class="death-screen">
+        <div class="death-content">
+            <h2 class="death-title">WASTED</h2>
+            <p class="death-subtitle">You were eliminated</p>
+            <p class="death-timer">Respawning in <span id="death-timer">5</span>s</p>
+        </div>
+    </div>
+
+    <!-- ═══ TOAST CONTAINER ═══ -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <!-- ═══ CONTROLS HINT ═══ -->
+    <aside id="controls-hint" class="controls-hint">
+        <div class="hint-grid">
+            <div class="hint-col">
+                <div class="hint-row"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</div>
+                <div class="hint-row"><kbd>Shift</kbd> Sprint · <kbd>Space</kbd> Jump</div>
+                <div class="hint-row"><kbd>LMB</kbd> Shoot · <kbd>RMB</kbd> Aim</div>
+            </div>
+            <div class="hint-col">
+                <div class="hint-row"><kbd>V</kbd> Camera · <kbd>R</kbd> Reload</div>
+                <div class="hint-row"><kbd>Q</kbd>/<kbd>E</kbd> or Scroll: Switch Weapon</div>
+                <div class="hint-row"><kbd>Esc</kbd> Pause · <kbd>M</kbd> Sound</div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ═══ THOUGHT / QUIP BUBBLE ═══ -->
+    <p id="thought-bubble" class="quip-bubble" aria-live="polite"></p>
+
+    <!-- ═══ SOUND TOGGLE ═══ -->
+    <button type="button" id="sound-toggle" class="sound-toggle" aria-pressed="false" aria-label="Sound off">
+        <span class="sound-toggle__dot" aria-hidden="true"></span>
+        <span class="sound-toggle__label">Sound off</span>
+    </button>
+
+    <!-- ═══ PAUSE MENU ═══ -->
+    <div id="pause-menu" class="modal-scrim" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="modal pause-modal" tabindex="-1">
+            <header class="modal__header">
+                <h2 class="modal__title">PAUSED</h2>
+            </header>
+            <div class="modal__body">
+                <button type="button" id="resume-btn" class="menu-btn menu-btn--primary">
+                    <span class="btn-icon">▶</span> RESUME
+                </button>
+                <div id="pause-stats" class="pause-stats"></div>
+                <div class="pause-controls">
+                    <div><kbd>WASD</kbd> Move</div>
+                    <div><kbd>Shift</kbd> Sprint</div>
+                    <div><kbd>Space</kbd> Jump</div>
+                    <div><kbd>LMB</kbd> Shoot</div>
+                    <div><kbd>RMB</kbd> Aim</div>
+                    <div><kbd>V</kbd> Camera</div>
+                    <div><kbd>R</kbd> Reload</div>
+                    <div><kbd>Q/E</kbd> Switch Weapon</div>
+                    <div><kbd>M</kbd> Sound</div>
+                    <div><kbd>Esc</kbd> Resume</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ MOBILE CONTROLS ═══ -->
     <div id="mobile-controls">
         <div id="joystick-area">
             <div id="joystick-base">
                 <div id="joystick-thumb"></div>
             </div>
+        </div>
+        <div id="mobile-action-btns">
+            <button type="button" id="mobile-shoot" class="mobile-btn mobile-btn--shoot">🔫</button>
+            <button type="button" id="mobile-jump" class="mobile-btn mobile-btn--jump">⬆</button>
         </div>
     </div>
 

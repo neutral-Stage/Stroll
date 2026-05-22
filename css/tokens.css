@@ -1,81 +1,61 @@
-/* Stroll — design tokens */
-
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Libre+Baskerville:ital@0;1&family=Libre+Franklin:wght@400;500;600&display=swap');
+/* ═══ DESIGN TOKENS — STROLL ACTION GAME ═══ */
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-    /* Surfaces */
-    --color-bg: #11100f;
-    --color-bg-raised: #1a1917;
-    --color-bg-overlay: rgba(17, 16, 15, 0.88);
-    --color-border: rgba(232, 228, 220, 0.1);
-    --color-border-strong: rgba(232, 228, 220, 0.18);
+    /* ─ Brand Colors ─ */
+    --clr-bg: #0a0a0f;
+    --clr-surface: #12121a;
+    --clr-surface-alt: #1a1a25;
+    --clr-border: rgba(255, 255, 255, 0.06);
 
-    /* Text */
-    --color-text: #e8e4dc;
-    --color-text-secondary: rgba(232, 228, 220, 0.62);
-    --color-text-tertiary: rgba(232, 228, 220, 0.38);
+    /* ─ Text ─ */
+    --clr-text: #e8e4dc;
+    --clr-text-dim: rgba(232, 228, 220, 0.5);
+    --clr-text-bright: #ffffff;
 
-    /* Accent — single warm neutral, no rainbow UI */
-    --color-accent: #b8956c;
-    --color-accent-soft: rgba(184, 149, 108, 0.14);
-    --color-positive: #7d9a82;
-    --color-negative: #b86f64;
+    /* ─ Accent Colors ─ */
+    --clr-accent: #ff4444;
+    --clr-accent-glow: rgba(255, 68, 68, 0.4);
+    --clr-health: #00cc44;
+    --clr-armor: #4488ff;
+    --clr-stamina: #ffaa00;
+    --clr-cash: #00ff88;
+    --clr-xp: #aa66ff;
+    --clr-wanted: #ff4444;
+    --clr-mission: #ffd700;
 
-    /* Typography */
-    --font-ui: 'Libre Franklin', system-ui, -apple-system, sans-serif;
-    --font-display: 'Libre Baskerville', 'Iowan Old Style', Georgia, serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+    /* ─ Typography ─ */
+    --font-display: 'Orbitron', 'Inter', sans-serif;
+    --font-ui: 'Rajdhani', 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
 
-    --text-xs: 0.6875rem;   /* 11px */
-    --text-sm: 0.8125rem;   /* 13px */
-    --text-base: 0.9375rem; /* 15px */
-    --text-lg: 1.125rem;
-    --text-xl: 1.5rem;
-    --text-2xl: 2.25rem;
+    /* ─ Spacing ─ */
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-5: 20px;
+    --sp-6: 24px;
+    --sp-8: 32px;
 
-    --leading-tight: 1.25;
-    --leading-normal: 1.5;
-    --tracking-wide: 0.06em;
-    --tracking-wider: 0.12em;
+    /* ─ Radius ─ */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
 
-    /* Spacing (4px grid) */
-    --space-1: 4px;
-    --space-2: 8px;
-    --space-3: 12px;
-    --space-4: 16px;
-    --space-5: 24px;
-    --space-6: 32px;
-    --space-8: 48px;
-
-    /* Shape */
-    --radius-sm: 2px;
-    --radius-md: 4px;
-    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-
-    /* Legacy aliases (gradual migration) */
-    --stroll-bg-deep: var(--color-bg);
-    --stroll-bg-mid: var(--color-bg-raised);
-    --stroll-bg-accent: #242220;
-    --stroll-surface: var(--color-bg-raised);
-    --stroll-surface-border: var(--color-border);
-    --stroll-text: var(--color-text);
-    --stroll-text-muted: var(--color-text-secondary);
-    --stroll-text-faint: var(--color-text-tertiary);
-    --stroll-gold: var(--color-accent);
-    --stroll-gold-light: #d4b896;
-    --stroll-teal: var(--color-positive);
-    --stroll-error: var(--color-negative);
-    --stroll-font-serif: var(--font-display);
-    --stroll-font-mono: var(--font-mono);
-    --stroll-radius: var(--radius-md);
-    --stroll-radius-sm: var(--radius-sm);
-    --stroll-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
-
+    /* ─ Layers ─ */
     --z-canvas: 0;
-    --z-ui: 10;
-    --z-hud: 15;
-    --z-mobile: 20;
-    --z-overlay: 30;
-    --z-minigame: 50;
+    --z-hud: 10;
+    --z-controls: 20;
+    --z-toast: 30;
+    --z-overlay: 40;
+    --z-modal: 50;
+    --z-menu: 60;
     --z-loading: 100;
+    --z-death: 90;
+
+    /* ─ Transitions ─ */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }

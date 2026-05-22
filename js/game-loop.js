@@ -1,158 +1,269 @@
-// @ts-check
 /**
- * game-loop.js — Per-frame update branches
+ * game-loop.js — Main game loop for STROLL open-world action game
+ * Orchestrates all game systems per frame.
  * @module game-loop
  */
 
-import { updatePlayer, player } from './controls.js';
+import { updateDayNight, getNightAmount } from './lighting.js';
 import { updateNPCs } from './npcs.js';
-import { updateDayNight, getCycleTime, getNightAmount } from './lighting.js';
-import { updateCityLighting } from './city.js';
 import { updateParticles } from './particles.js';
-import { updateDog } from './dog.js';
 import { updateTraffic } from './traffic.js';
-import { updateWeather } from './weather.js';
-import { updateMiniGame, getActiveGame } from './minigames.js';
-import { updateCollectibles, addScore, getCollectedCount, getTotalCollectibles } from './collectibles.js';
-import { updateEnhancedCollectibles, getTotalEnhancedCollectibles, getCollectedEnhancedCount, playEnhancedCollectionSound } from './enhanced-collectibles.js';
 import { updateWildlife } from './wildlife.js';
-import { updateChallenges, getWaypointsFound, getTotalWaypoints } from './challenges.js';
-import { updateInteractive, getFlowersInteracted } from './interactive.js';
-import { updateHUD, getIsPaused, isJournalOpen } from './hud.js';
-import { updatePhotoMode, isPhotoModeActive } from './photomode.js';
-import { updateMeditation, isMeditationActive } from './meditation.js';
-import { updateCinematic, isCinematicPlaying } from './cinematic.js';
-import { updateAudioTimeOfDay, getAudioContext, getMasterGain } from './audio.js';
-import { updateWeapon } from './weapon.js';
-import { session, buildChallengeStats } from './game-state.js';
-import { showToast } from './hud.js';
-import { FEATURE_WEAPON } from './config.js';
-import { emit, Events } from './events.js';
+import { updateWeather } from './weather.js';
+import { updateHUD, showDeathScreen, hideDeathScreen, showToast, addKillFeed } from './hud.js';
+import { GAME_STATES, CONTROLS_HINT_FADE_DELAY, PLAYER_QUIPS, THOUGHT_MIN_DELAY, THOUGHT_EXTRA_DELAY, THOUGHT_DISPLAY_TIME } from './config.js';
+import { getState, isState, updateStateMachine } from './core/state-machine.js';
+import { updatePlayerStats, getPlayerStats, isPlayerDead, damagePlayer, addCash, addXP, addKill, respawnPlayer, getDamageDirection } from './player/player.js';
+import { getCurrentWeapon, getCurrentWeaponType, getAmmo, cycleWeapon, setCurrentWeapon } from './player/inventory.js';
+import { updateCamera, addCameraShake, getCameraMode } from './camera/camera-controller.js';
+import { updateWeaponSystem, getBullets, clearBullets, switchWeapon, startFiring, stopFiring } from './weapons/weapon-system.js';
+import { updateEnemies, damageEnemyAtPoint, alertEnemiesNear, spawnEnemy, getActiveEnemyCount, spawnWantedEnemies } from './enemies/enemy-manager.js';
+import { updateExplosions, createExplosion, createFirePatch } from './destruction/explosions.js';
+import { updateWanted, getWantedLevel, commitCrime, CRIMES } from './systems/wanted.js';
+import { updateMissions, reportKill, getMissionMarker } from './missions/mission-manager.js';
+import { updateVehicles, isPlayerDriving, getPlayerVehicle } from './vehicles/vehicle-system.js';
+import { updateHelicopters, isPlayerInHeli, spawnPoliceChopper } from './vehicles/helicopter-system.js';
+import { updateRadio } from './audio/radio.js';
+import { initEconomy, updateEconomy } from './shops/economy-system.js';
+import { updateStory } from './missions/story.js';
+import { updateInteriors } from './interiors/interior-system.js';
+import { buildings } from './city.js';
+
+// ── State ────────────────────────────────────────────────────
+let controlsHintTimer = 0;
+let thoughtTimer = 0;
+let respawnTimer = 0;
+const RESPAWN_TIME = 5;
+
+// ── Movement flags (set by controls.js) ──────────────────────
+let sprintFlag = false;
+let aimFlag = false;
+let playerYaw = 0;
+let playerPitch = 0;
+let headBobOffset = 0;
 
 /**
- * @param {object} ctx
- * @param {THREE.Scene} ctx.scene
- * @param {THREE.PerspectiveCamera} ctx.camera
- * @param {THREE.WebGLRenderer} ctx.renderer
- * @param {import('three/addons/postprocessing/EffectComposer.js').EffectComposer} ctx.composer
- * @param {number} ctx.delta
- * @param {number} ctx.elapsed
- * @param {{ x: number, z: number }} ctx.lastPlayerPos
- * @returns {{ lastPlayerPos: { x: number, z: number } }}
+ * Set movement flags from controls module.
+ */
+export function setMovementFlags(flags) {
+    sprintFlag = flags.sprinting || false;
+    aimFlag = flags.aiming || false;
+    playerYaw = flags.yaw || 0;
+    playerPitch = flags.pitch || 0;
+    headBobOffset = flags.headBob || 0;
+}
+
+/**
+ * Main tick function — called every frame.
+ * @param {Object} ctx
+ * @returns {{ lastPlayerPos: {x: number, z: number} }}
  */
 export function tick(ctx) {
-    const { scene, camera, renderer, composer, delta, elapsed } = ctx;
-    let lastPlayerPos = ctx.lastPlayerPos;
+    const { scene, camera, renderer, composer, delta, elapsed, lastPlayerPos } = ctx;
+    const dt = Math.min(delta, 0.05); // Cap delta at 50ms (20fps floor)
 
-    if (isCinematicPlaying()) {
-        updateCinematic(delta, camera);
-        updateDayNight(delta, scene, player);
-        composer.render();
+    updateWeather(0, 0, lastPlayerPos, scene);
+
+    // Update state machine fade
+    const transition = updateStateMachine(dt);
+
+    // Draw fade overlay if transitioning
+    if (transition.transitioning) {
+        const fadeEl = document.getElementById('fade-overlay');
+        if (fadeEl) {
+            fadeEl.style.opacity = transition.fadeAlpha;
+            fadeEl.style.display = transition.fadeAlpha > 0.01 ? 'block' : 'none';
+        }
+    }
+
+    const currentState = getState();
+
+    // ── MENU state ───────────────────────────────────────────
+    if (currentState === GAME_STATES.MENU) {
+        if (composer) composer.render(dt);
+        else renderer.render(scene, camera);
         return { lastPlayerPos };
     }
 
-    if (getIsPaused() || isJournalOpen()) {
-        composer.render();
+    // ── PAUSED state ─────────────────────────────────────────
+    if (currentState === GAME_STATES.PAUSED) {
+        if (composer) composer.render(dt);
+        else renderer.render(scene, camera);
         return { lastPlayerPos };
     }
 
-    if (isPhotoModeActive()) {
-        updatePhotoMode(camera);
-        updateDayNight(delta, scene, player);
-        updateParticles(delta, elapsed, player);
-        composer.render();
+    // ── DEAD state ───────────────────────────────────────────
+    if (currentState === GAME_STATES.DEAD) {
+        respawnTimer -= dt;
+        showDeathScreen(respawnTimer);
+
+        if (respawnTimer <= 0) {
+            respawnPlayer();
+            hideDeathScreen();
+            // State will transition back to PLAYING
+        }
+
+        // Still render scene (greyscale effect could be applied)
+        updateDayNight(elapsed);
+        if (composer) composer.render(dt);
+        else renderer.render(scene, camera);
         return { lastPlayerPos };
     }
 
-    if (isMeditationActive()) {
-        updateMeditation(delta, camera);
-        updateDayNight(delta, scene, player);
-        updateParticles(delta, elapsed, player);
-        updateWildlife(delta, elapsed, player);
-        composer.render();
-        return { lastPlayerPos };
+    // ── PLAYING state ────────────────────────────────────────
+    const player = ctx.player || { x: 0, y: 0, z: 0 };
+    const playerPos = { x: player.x, z: player.z };
+
+    // Player stats (health regen, stamina)
+    updatePlayerStats(dt, sprintFlag);
+
+    // Check death
+    if (isPlayerDead()) {
+        respawnTimer = RESPAWN_TIME;
+        showDeathScreen(respawnTimer);
+        return { lastPlayerPos: playerPos };
     }
 
-    updatePlayer(delta, camera);
+    if (!isPlayerDriving() && !isPlayerInHeli()) {
+        updatePlayer(dt, camera);
 
-    const dx = player.x - lastPlayerPos.x;
-    const dz = player.z - lastPlayerPos.z;
-    session.distanceWalked += Math.sqrt(dx * dx + dz * dz);
-    lastPlayerPos = { x: player.x, z: player.z };
+        // Update player direction based on camera look
+        syncPlayerLookFromCamera(camera);
 
-    updateNPCs(delta, player);
-    updateDayNight(delta, scene, player);
+        // Camera
+        updateCamera(dt, player.x, player.y, player.z, playerYaw, playerPitch, sprintFlag, aimFlag, headBobOffset);
+    }
+    // Day/Night
+    updateDayNight(elapsed);
     const nightAmount = getNightAmount();
-    updateCityLighting(nightAmount);
-    updateParticles(delta, elapsed, player);
-    updateDog(delta, elapsed, player);
-    updateTraffic(delta, player);
-    updateWeather(delta, elapsed, player, scene, getAudioContext(), getMasterGain());
 
-    if (getActiveGame()) {
-        updateMiniGame(delta, elapsed, player, scene);
+    // Controls hint
+    controlsHintTimer += dt;
+    if (controlsHintTimer > CONTROLS_HINT_FADE_DELAY / 1000) {
+        const hint = document.getElementById('controls-hint');
+        if (hint && hint.style.opacity !== '0') hint.style.opacity = '0';
     }
 
-    const cycleTime = getCycleTime();
-    if (nightAmount > 0.7) session.nightSeen = true;
+    // ── Combat Systems ───────────────────────────────────────
 
-    const targetExposure = 0.88 - nightAmount * 0.22;
-    renderer.toneMappingExposure += (targetExposure - renderer.toneMappingExposure) * Math.min(1, delta * 0.5);
-    updateAudioTimeOfDay(nightAmount);
+    // Weapon system
+    updateWeaponSystem(dt, elapsed, playerPos, aimFlag, renderer);
 
-    const collectResult = updateCollectibles(delta, elapsed, player, scene);
-    if (collectResult.justCollected) {
-        emit(Events.PICKUP, collectResult);
-        if (collectResult.justCollected === 'star') session.starsCollected++;
-    }
+    // Check bullet hits against enemies
+    const bulletList = getBullets();
+    for (let i = bulletList.length - 1; i >= 0; i--) {
+        const b = bulletList[i];
+        const killed = damageEnemyAtPoint(
+            b.mesh.position.x, b.mesh.position.y, b.mesh.position.z,
+            b.isRocket ? 0.5 : 0.8, // hit detection radius
+            b.damage
+        );
 
-    const enhancedCollect = updateEnhancedCollectibles(delta, elapsed, player);
-    if (enhancedCollect.collected) {
-        if (enhancedCollect.value) addScore(enhancedCollect.value);
-        const audioCtx = getAudioContext();
-        const masterGain = getMasterGain();
-        if (audioCtx && masterGain) {
-            playEnhancedCollectionSound(enhancedCollect.type, audioCtx, masterGain, enhancedCollect.pitch);
+        if (killed > 0) {
+            // Remove bullet on hit (do not dispose shared geometries)
+            if (b.mesh.parent) b.mesh.parent.remove(b.mesh);
+            bulletList.splice(i, 1);
+
+            reportKill(); // Notify mission system
+            const stats = getPlayerStats();
+            const enemyCfg = { xpReward: 25 }; // Simplified
+            const result = addXP(enemyCfg.xpReward);
+            if (result.leveledUp) {
+                showToast('LEVEL UP!', `Level ${result.newLevel}`, 'level');
+            }
+            addKillFeed(`Enemy eliminated +${enemyCfg.xpReward}XP`);
+            commitCrime('SHOOT_WEAPON', player.x, player.z);
         }
-        let message = '';
-        switch (enhancedCollect.type) {
-            case 'rainbow_gem': message = `Gem · +${enhancedCollect.value}`; break;
-            case 'artifact': message = enhancedCollect.lore || 'Artifact recovered'; break;
-            case 'music_note': message = 'Resonant note'; break;
-            case 'mystery_box': message = `Cache · +${enhancedCollect.value}`; break;
+
+        // Explosive bullets
+        if (b.hitExplosion || (b.explosive && b.lifetime <= 0)) {
+            createExplosion(b.mesh.position.x, b.mesh.position.y, b.mesh.position.z,
+                b.explosionRadius || 5, b.damage || 100);
+            addCameraShake(0.08, 0.3);
+            commitCrime('EXPLOSION', player.x, player.z);
         }
-        if (message) showToast('Collected', message, 'discovery');
     }
 
-    updateWildlife(delta, elapsed, player);
-
-    const totalCollectedNow = getCollectedCount() + getCollectedEnhancedCount();
-    const totalPickupsWorld = getTotalCollectibles() + getTotalEnhancedCollectibles();
-
-    updateChallenges(delta, elapsed, player, buildChallengeStats({
-        collected: totalCollectedNow,
-        totalCollectibles: totalPickupsWorld,
-        waypointsFound: getWaypointsFound(),
-        flowersInteracted: getFlowersInteracted(),
-    }));
-
-    updateInteractive(delta, elapsed, player, nightAmount);
-
-    updateHUD({
-        score: collectResult.score,
-        collected: totalCollectedNow,
-        totalCollectibles: totalPickupsWorld,
-        waypointsFound: getWaypointsFound(),
-        totalWaypoints: getTotalWaypoints(),
-        cycleTime,
-        playerYaw: player.yaw,
-    });
-
-    composer.render();
-
-    if (FEATURE_WEAPON) {
-        updateWeapon(delta, elapsed, player, renderer);
+    // Alert enemies near gunfire
+    if (bulletList.length > 0) {
+        alertEnemiesNear(player.x, player.z, 50);
     }
 
-    return { lastPlayerPos };
+    // Enemy system
+    const enemyResult = updateEnemies(dt, elapsed, player.x, player.z);
+
+    // Process enemy attacks
+    for (const attack of enemyResult.attacks) {
+        const result = damagePlayer(attack.damage, attack.fromX, attack.fromZ, player.x, player.z, playerYaw);
+        addCameraShake(0.02, 0.15);
+
+        if (result.killed) {
+            respawnTimer = RESPAWN_TIME;
+        }
+    }
+
+    // Explosions & debris
+    updateExplosions(dt, elapsed, player.x, player.z);
+
+    // Wanted system
+    const wantedResult = updateWanted(dt, player.x, player.z);
+    if (wantedResult.spawnRequest) {
+        const req = wantedResult.spawnRequest;
+        spawnWantedEnemies(getWantedLevel(), req.nearX, req.nearZ, req.count, req.type);
+        if (req.spawnChopper) {
+            spawnPoliceChopper(req.nearX, req.nearZ);
+        }
+    }
+
+    // Missions
+    updateMissions(dt, player.x, player.z);
+
+    // ── World Systems ────────────────────────────────────────
+    updateVehicles(dt, elapsed);
+    updateHelicopters(dt, elapsed);
+    updateStory(dt, elapsed, playerPos);
+
+    // Interiors
+    updateInteriors(dt, elapsed, playerPos);
+
+    // Audio
+    updateRadio(dt, player.x, player.y, player.z);
+    updateTraffic(dt, elapsed, playerPos);
+    updateParticles(dt, elapsed, playerPos);
+    updateWildlife(dt, elapsed, playerPos);
+    updateWeather(dt, elapsed, lastPlayerPos, scene);
+    updateEconomy(dt, elapsed, playerPos);
+
+    // ── HUD ──────────────────────────────────────────────────
+    const stats = getPlayerStats();
+    const weapon = getCurrentWeapon();
+    const ammo = getAmmo();
+    const weaponInfo = {
+        name: weapon.name || 'Fists',
+        ammoClip: ammo.clip,
+        ammoReserve: ammo.reserve,
+        maxClip: ammo.maxClip,
+    };
+
+    const damageDir = getDamageDirection();
+    const enemyData = [];
+    // Simplified enemy position data for minimap
+
+    updateHUD(
+        stats,
+        weaponInfo,
+        getWantedLevel(),
+        camera,
+        playerPos,
+        enemyData,
+        buildings,
+        damageDir,
+        getMissionMarker()
+    );
+
+    // ── Render ───────────────────────────────────────────────
+    if (composer) composer.render(dt);
+    else renderer.render(scene, camera);
+
+    return { lastPlayerPos: playerPos };
 }

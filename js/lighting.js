@@ -319,7 +319,8 @@ function lerpColorNum(a, b, t) {
  * @param {THREE.Scene} scene
  */
 export function setupGround(scene) {
-    const groundGeo = new THREE.PlaneGeometry(CITY_SIZE * 2, CITY_SIZE * 2, 64, 64);
+    // City ground
+    const groundGeo = new THREE.PlaneGeometry(CITY_SIZE, CITY_SIZE, 64, 64);
     
     // Create a canvas texture for more realistic ground
     const groundCanvas = document.createElement('canvas');
@@ -371,6 +372,18 @@ export function setupGround(scene) {
     ground.position.y = -0.01;
     ground.receiveShadow = true;
     scene.add(ground);
+
+    // Ocean water
+    const oceanGeo = new THREE.PlaneGeometry(2000, 2000, 16, 16);
+    const oceanMat = new THREE.MeshLambertMaterial({
+        color: 0x0044aa,
+        transparent: true,
+        opacity: 0.8
+    });
+    const ocean = new THREE.Mesh(oceanGeo, oceanMat);
+    ocean.rotation.x = -Math.PI / 2;
+    ocean.position.y = -2; // water level is slightly below ground
+    scene.add(ocean);
 }
 
 /**
