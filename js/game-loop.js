@@ -28,6 +28,7 @@ import { initEconomy, updateEconomy } from './shops/economy-system.js';
 import { updateStory } from './missions/story.js';
 import { updateInteriors } from './interiors/interior-system.js';
 import { buildings } from './city.js';
+import { updatePlayer, syncPlayerLookFromCamera } from './controls.js';
 
 // ── State ────────────────────────────────────────────────────
 let controlsHintTimer = 0;
