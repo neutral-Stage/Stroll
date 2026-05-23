@@ -128,9 +128,6 @@ export function tick(ctx) {
     if (!isPlayerDriving() && !isPlayerInHeli()) {
         updatePlayer(dt, camera);
 
-        // Update player direction based on camera look
-        syncPlayerLookFromCamera(camera);
-
         // Camera
         updateCamera(dt, player.x, player.y, player.z, playerYaw, playerPitch, sprintFlag, aimFlag, headBobOffset);
     }

@@ -125,15 +125,11 @@ export function updateHUD(stats, weaponInfo, wantedLevel, camera, playerPos, ene
     if (el.damageOverlay && damageDir) {
         if (damageDir.active) {
             el.damageOverlay.style.opacity = '1';
-            // Rotate overlay to show damage direction
-            const deg = (damageDir.angle * 180 / Math.PI);
-            el.damageOverlay.style.background = `conic-gradient(
-                from ${deg - 30}deg,
-                transparent 0deg,
-                rgba(255, 0, 0, 0.4) 15deg,
-                rgba(255, 0, 0, 0.6) 30deg,
-                rgba(255, 0, 0, 0.4) 45deg,
-                transparent 60deg
+            el.damageOverlay.style.background = `radial-gradient(
+                circle,
+                transparent 40%,
+                rgba(255, 0, 0, 0.2) 75%,
+                rgba(255, 0, 0, 0.7) 100%
             )`;
         } else {
             el.damageOverlay.style.opacity = '0';

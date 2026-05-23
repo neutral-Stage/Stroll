@@ -295,19 +295,19 @@ export function updatePlayer(delta, camera) {
         player.vy = 0;
     }
 
-    // Update camera position
-    camera.position.set(player.x, player.y + PLAYER_HEIGHT, player.z);
-
+    let headBob = 0;
     if (len > HEAD_BOB_THRESHOLD && player.y === 0) {
         bobPhase += delta * HEAD_BOB_SPEED;
-        camera.position.y += Math.abs(Math.sin(bobPhase)) * HEAD_BOB_AMOUNT;
+        headBob = Math.abs(Math.sin(bobPhase)) * HEAD_BOB_AMOUNT;
     }
+    player.headBob = headBob;
 
     const lookLerp = 1 - Math.exp(-14 * delta);
     viewYaw += (player.yaw - viewYaw) * lookLerp;
     viewPitch += (player.pitch - viewPitch) * lookLerp;
-    camera.rotation.y = viewYaw;
-    camera.rotation.x = viewPitch;
+    
+    player.viewYaw = viewYaw;
+    player.viewPitch = viewPitch;
 }
 
 /**

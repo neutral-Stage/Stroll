@@ -364,8 +364,8 @@ function animate() {
     setMovementFlags({
         sprinting: player.sprinting || false,
         aiming: player.aiming || false,
-        yaw: player.yaw || 0,
-        pitch: player.pitch || 0,
+        yaw: player.viewYaw || player.yaw || 0,
+        pitch: player.viewPitch || player.pitch || 0,
         headBob: player.headBob || 0,
     });
 
