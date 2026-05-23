@@ -105,7 +105,7 @@ export function tick(ctx) {
         }
 
         // Still render scene (greyscale effect could be applied)
-        updateDayNight(elapsed);
+        updateDayNight(dt, scene, lastPlayerPos);
         if (composer) composer.render(dt);
         else renderer.render(scene, camera);
         return { lastPlayerPos };
@@ -135,7 +135,7 @@ export function tick(ctx) {
         updateCamera(dt, player.x, player.y, player.z, playerYaw, playerPitch, sprintFlag, aimFlag, headBobOffset);
     }
     // Day/Night
-    updateDayNight(elapsed);
+    updateDayNight(dt, scene, playerPos);
     const nightAmount = getNightAmount();
 
     // Controls hint
@@ -228,8 +228,8 @@ export function tick(ctx) {
     updateInteriors(dt, elapsed, playerPos);
 
     // Audio
-    updateRadio(dt, player.x, player.y, player.z);
-    updateTraffic(dt, elapsed, playerPos);
+    updateRadio();
+    updateTraffic(dt, playerPos);
     updateParticles(dt, elapsed, playerPos);
     updateWildlife(dt, elapsed, playerPos);
     updateWeather(dt, elapsed, lastPlayerPos, scene);
