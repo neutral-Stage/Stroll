@@ -10,6 +10,7 @@
  * @module controls
  */
 
+import * as THREE from 'three';
 import {
     WALK_SPEED, LOOK_SPEED, TOUCH_LOOK_SPEED, PLAYER_HEIGHT,
     COLLISION_PADDING, CITY_SIZE, CITY_BOUND_MARGIN,
