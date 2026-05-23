@@ -37,7 +37,7 @@ import { initEnemies, spawnEnemy } from './enemies/enemy-manager.js';
 import { initExplosions } from './destruction/explosions.js';
 import { initHUD, setupPauseMenu, togglePause, getIsPaused, showToast, showMissionText } from './hud.js';
 import { initVehicles, spawnVehicle } from './vehicles/vehicle-system.js';
-import { initHelicopters, updateHelicopters } from './vehicles/helicopter-system.js';
+import { initHelicopters, updateHelicopters, spawnHelicopter } from './vehicles/helicopter-system.js';
 import { toggleRadio, nextStation } from './audio/radio.js';
 import { initStory } from './missions/story.js';
 import { initInteriors } from './interiors/interior-system.js';
