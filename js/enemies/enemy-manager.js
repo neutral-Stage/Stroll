@@ -4,7 +4,7 @@
  */
 
 import * as THREE from 'three';
-import { ENEMIES, ENEMY_TYPES, MAX_ENEMIES, ENEMY_CULL_DISTANCE, DISTRICTS } from '../config.js';
+import { ENEMIES, ENEMY_TYPES, MAX_ENEMIES, ENEMY_CULL_DISTANCE, DISTRICTS, WEAPON_TYPES } from '../config.js';
 import { createEntity, removeEntity, getEntitiesByType, updateEntityPosition, damageEntity, queryNearby } from '../core/entity-manager.js';
 import { dist2D, normalize2D, isInsideAnyBuilding } from '../core/physics.js';
 import { player } from '../controls.js';
