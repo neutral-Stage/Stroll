@@ -11,7 +11,7 @@ import {
 
 /** @type {THREE.PerspectiveCamera} */
 let camera = null;
-let mode = CAMERA_MODES.FIRST_PERSON;
+let mode = CAMERA_MODES.THIRD_PERSON;
 
 // Shake system
 let shakeIntensity = 0;
@@ -38,7 +38,7 @@ const raycaster = new THREE.Raycaster();
  */
 export function initCamera(cam) {
     camera = cam;
-    mode = CAMERA_MODES.FIRST_PERSON;
+    mode = CAMERA_MODES.THIRD_PERSON;
     currentFOV = cam.fov;
     targetFOV = cam.fov;
     currentOffset.set(THIRD_PERSON_OFFSET.x, THIRD_PERSON_OFFSET.y, THIRD_PERSON_OFFSET.z);
@@ -105,18 +105,16 @@ function updateThirdPerson(delta, px, py, pz, yaw, pitch, aiming) {
     const rotatedZ = -currentOffset.x * sinY + currentOffset.z * cosY;
 
     const targetX = px + rotatedX;
-    const targetY = py + currentOffset.y;
+    const targetY = py + currentOffset.y + Math.max(-0.4, pitch) * 2.2; // camera rises when looking up
     const targetZ = pz + rotatedZ;
 
-    // Simple collision avoidance: if camera is inside a building, move it closer
     camera.position.set(targetX, targetY, targetZ);
 
-    // Look at player's upper body
-    lookTarget.set(px, py + PLAYER_HEIGHT * 0.8, pz);
+    // Bake pitch into the look target rather than stacking rotation on top of
+    // lookAt() — the old `camera.rotation.x += pitch * 0.5` fought lookAt()'s
+    // own rotation and caused gimbal jitter when looking up/down.
+    lookTarget.set(px, py + PLAYER_HEIGHT * 0.85 + pitch * 4.5, pz);
     camera.lookAt(lookTarget);
-
-    // Apply pitch adjustment for looking up/down
-    camera.rotation.x += pitch * 0.5;
 }
 
 /**

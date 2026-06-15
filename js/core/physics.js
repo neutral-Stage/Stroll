@@ -140,6 +140,7 @@ export function resolveBuildings(body, padding = 0.5) {
 
     for (let i = 0; i < buildings.length; i++) {
         const b = buildings[i];
+        if (!b.intact || b.destroyed) continue;
         // Skip if clearly above the building
         if (body.y > b.height) continue;
 
@@ -171,6 +172,7 @@ export function resolveBuildings(body, padding = 0.5) {
 export function isInsideAnyBuilding(x, z, padding = 1) {
     for (let i = 0; i < buildings.length; i++) {
         const b = buildings[i];
+        if (!b.intact || b.destroyed) continue;
         if (x > b.x - b.width / 2 - padding && x < b.x + b.width / 2 + padding &&
             z > b.z - b.depth / 2 - padding && z < b.z + b.depth / 2 + padding) {
             return true;
@@ -189,6 +191,7 @@ export function isInsideAnyBuilding(x, z, padding = 1) {
 export function getBuildingAt(x, z, padding = 0) {
     for (let i = 0; i < buildings.length; i++) {
         const b = buildings[i];
+        if (!b.intact || b.destroyed) continue;
         if (x > b.x - b.width / 2 - padding && x < b.x + b.width / 2 + padding &&
             z > b.z - b.depth / 2 - padding && z < b.z + b.depth / 2 + padding) {
             return b;

@@ -112,7 +112,7 @@ export const ROOFTOP_DETAIL_CHANCE = 0.3;
 export const SHADOW_MAP_SIZE = 2048;
 export const SHADOW_FRUSTUM = 150;
 export const FOG_DENSITY = 0.006;
-export const FOG_COLOR = 0x1a1a2e;
+export const FOG_COLOR = 0xFFB6C1; // Vice City Sunset Pink
 
 // ── Skybox ───────────────────────────────────────────────────
 export const SKY_RADIUS = 500;
@@ -126,13 +126,15 @@ export const MAX_IMPACT_PARTICLES = 100;
 export const SHELL_CASING_LIFETIME = 3;
 
 // ── Day/Night Cycle ──────────────────────────────────────────
-export const DAY_NIGHT_CYCLE_DURATION = 600; // faster cycle for action game
+export const DAY_NIGHT_CYCLE_DURATION = 1800; // slower, more cinematic time-of-day passage
 export const DAY_NIGHT_ENABLED = true;
 
 // ── Weapons ──────────────────────────────────────────────────
 export const WEAPON_TYPES = {
     FISTS: 'fists',
     BAT: 'bat',
+    SWORD: 'sword',
+    KNIFE: 'knife',
     PISTOL: 'pistol',
     SHOTGUN: 'shotgun',
     SMG: 'smg',
@@ -141,6 +143,7 @@ export const WEAPON_TYPES = {
     RPG: 'rpg',
     GRENADE: 'grenade',
     MOLOTOV: 'molotov',
+    SMOKE_BOMB: 'smoke_bomb',
     MINIGUN: 'minigun',
     GRAPPLE: 'grapple',
 };
@@ -166,6 +169,18 @@ export const WEAPONS = {
         damage: 25, fireRate: 2, range: 3, clipSize: Infinity, maxAmmo: Infinity,
         recoil: 0, spread: 0, headshotMult: 2, auto: false, knockback: 5,
         description: 'Wooden persuasion. Strong knockback.',
+    },
+    [WEAPON_TYPES.SWORD]: {
+        name: 'Katana Sword', category: WEAPON_CATEGORIES.MELEE,
+        damage: 45, fireRate: 2.5, range: 3.5, clipSize: Infinity, maxAmmo: Infinity,
+        recoil: 0, spread: 0, headshotMult: 2, auto: false, knockback: 6,
+        description: 'Traditional katana. Deadly slashes.',
+    },
+    [WEAPON_TYPES.KNIFE]: {
+        name: 'Combat Knife', category: WEAPON_CATEGORIES.MELEE,
+        damage: 20, fireRate: 5, range: 2.2, clipSize: Infinity, maxAmmo: Infinity,
+        recoil: 0, spread: 0, headshotMult: 2.5, auto: false, knockback: 2,
+        description: 'Tactical blade. Rapid close attacks.',
     },
     [WEAPON_TYPES.PISTOL]: {
         name: '9mm Pistol', category: WEAPON_CATEGORIES.PISTOLS,
@@ -223,6 +238,13 @@ export const WEAPONS = {
         fireRadius: 5, fireDuration: 12, throwForce: 12,
         description: 'Incendiary. Creates a pool of fire.',
     },
+    [WEAPON_TYPES.SMOKE_BOMB]: {
+        name: 'Smoke Bomb', category: WEAPON_CATEGORIES.THROWABLES,
+        damage: 0, fireRate: 1.2, range: 25, clipSize: 1, maxAmmo: 10,
+        recoil: 0, spread: 0, headshotMult: 1, auto: false,
+        smokeRadius: 8, smokeDuration: 10, throwForce: 12,
+        description: 'Tactical smoke. Disorients enemies.',
+    },
     [WEAPON_TYPES.MINIGUN]: {
         name: 'Minigun', category: WEAPON_CATEGORIES.HEAVY,
         damage: 8, fireRate: 30, range: 60, clipSize: 200, maxAmmo: 1000,
@@ -250,6 +272,9 @@ export const ENEMY_TYPES = {
     MILITARY: 'military',
     BOSS_CRIME_LORD: 'boss_crime_lord',
     BOSS_GENERAL: 'boss_general',
+    MONSTER: 'monster',
+    FLYING_MONSTER: 'flying_monster',
+    UFO: 'ufo',
 };
 
 export const ENEMIES = {
@@ -284,7 +309,7 @@ export const ENEMIES = {
     [ENEMY_TYPES.SWAT]: {
         name: 'SWAT Operator', health: 150, speed: 2.5, damage: 20,
         weapon: WEAPON_TYPES.SMG, alertRange: 50, attackRange: 40,
-        xpReward: 60, cashDrop: [0, 0], color: 0x1a1a1a,
+        xpReward: 60, cashDrop: [20, 100], color: 0x1a1a1a,
         usesCover: true, flanks: true, wantedOnly: true,
     },
     [ENEMY_TYPES.MILITARY]: {
@@ -305,10 +330,26 @@ export const ENEMIES = {
         xpReward: 1000, cashDrop: [10000, 20000], color: 0x2E2E2E,
         usesCover: true, boss: true, armored: true,
     },
+    [ENEMY_TYPES.MONSTER]: {
+        name: 'Street Beast', health: 250, speed: 3.5, damage: 25,
+        weapon: WEAPON_TYPES.FISTS, alertRange: 25, attackRange: 3.0,
+        xpReward: 50, cashDrop: [100, 300], color: 0x8A2BE2,
+    },
+    [ENEMY_TYPES.FLYING_MONSTER]: {
+        name: 'Gargoyle', health: 80, speed: 3.0, damage: 15,
+        weapon: WEAPON_TYPES.FISTS, alertRange: 30, attackRange: 20,
+        xpReward: 30, cashDrop: [50, 150], color: 0x2E8B57,
+    },
+    [ENEMY_TYPES.UFO]: {
+        name: 'Alien UFO', health: 600, speed: 2.0, damage: 40,
+        weapon: WEAPON_TYPES.FISTS, alertRange: 50, attackRange: 40,
+        xpReward: 200, cashDrop: [500, 1000], color: 0x00FF00,
+        boss: true,
+    },
 };
 
-export const MAX_ENEMIES = 50;
-export const ENEMY_SPAWN_INTERVAL = 3; // seconds between spawn checks
+export const MAX_ENEMIES = 80;
+export const ENEMY_SPAWN_INTERVAL = 1; // seconds between spawn checks
 export const ENEMY_DESPAWN_DISTANCE = 150;
 
 // ── Wanted System ────────────────────────────────────────────
@@ -438,10 +479,12 @@ export const DAMAGE_INDICATOR_DURATION = 1.5;
 
 // ── Colors ───────────────────────────────────────────────────
 export const BUILDING_COLORS = [
-    0x3a3a4a, 0x4a4a5a, 0x5a5a6a, 0x6a6a7a, 0x4a4a4a,
-    0x555566, 0x666677, 0x777788, 0x444455, 0x333344,
-    0x5a5a5a, 0x6a6a6a, 0x7a7a7a, 0x8a8a8a, 0x505060,
-    0x404050, 0x606070, 0x505050, 0x454555, 0x353545,
+    0xffb6c1, 0xffd1dc, 0xffc0cb, 0xff69b4, // Pinks
+    0xe0ffff, 0xaffeee, 0x00ffff, 0x40e0d0, // Cyans
+    0x98ff98, 0xc1e1c1, 0x00fa9a, 0x3cb371, // Mints
+    0xfffacd, 0xffebcd, 0xffe4b5, 0xffa07a, // Yellow/Peach/Coral
+    0xe6e6fa, 0xd8bfd8, 0xdda0dd, 0xee82ee, // Lavender/Purple
+    0xf0f8ff, 0xf5f5f5, 0xffffff, 0xdcdcdc, // Whites
 ];
 
 export const NPC_COLORS = [
@@ -450,7 +493,7 @@ export const NPC_COLORS = [
     0xAED581, 0x4DD0E1, 0xFFD54F, 0x7986CB, 0xE0E0E0,
 ];
 
-export const FOLIAGE_COLORS = [0x2E5016, 0x3B6B22, 0x4A7D2E, 0x5A8F3A, 0x3A6B28];
+export const FOLIAGE_COLORS = [0x55aa55, 0x449944, 0x66bb66, 0x77cc77];
 
 // ── Thoughts → replaced with radio chatter/quips ─────────────
 export const PLAYER_QUIPS = [

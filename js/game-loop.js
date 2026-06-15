@@ -10,25 +10,31 @@ import { updateParticles } from './particles.js';
 import { updateTraffic } from './traffic.js';
 import { updateWildlife } from './wildlife.js';
 import { updateWeather } from './weather.js';
-import { updateHUD, showDeathScreen, hideDeathScreen, showToast, addKillFeed } from './hud.js';
+import { updateLevelSystem, onEnemyKilled } from './systems/level-system.js';
+import { updateHUD, showDeathScreen, hideDeathScreen, showToast, addKillFeed, updateMissionHUD } from './hud.js';
 import { GAME_STATES, CONTROLS_HINT_FADE_DELAY, PLAYER_QUIPS, THOUGHT_MIN_DELAY, THOUGHT_EXTRA_DELAY, THOUGHT_DISPLAY_TIME } from './config.js';
-import { getState, isState, updateStateMachine } from './core/state-machine.js';
+import { getState, isState, setState, updateStateMachine } from './core/state-machine.js';
 import { updatePlayerStats, getPlayerStats, isPlayerDead, damagePlayer, addCash, addXP, addKill, respawnPlayer, getDamageDirection } from './player/player.js';
+import { updatePlayerModel } from './player/player-model.js';
 import { getCurrentWeapon, getCurrentWeaponType, getAmmo, cycleWeapon, setCurrentWeapon } from './player/inventory.js';
 import { updateCamera, addCameraShake, getCameraMode } from './camera/camera-controller.js';
-import { updateWeaponSystem, getBullets, clearBullets, switchWeapon, startFiring, stopFiring } from './weapons/weapon-system.js';
+import { updatePowersSystem, getCurrentPowerInfo } from './weapons/powers-system.js';
 import { updateEnemies, damageEnemyAtPoint, alertEnemiesNear, spawnEnemy, getActiveEnemyCount, spawnWantedEnemies } from './enemies/enemy-manager.js';
 import { updateExplosions, createExplosion, createFirePatch } from './destruction/explosions.js';
 import { updateWanted, getWantedLevel, commitCrime, CRIMES } from './systems/wanted.js';
-import { updateMissions, reportKill, getMissionMarker } from './missions/mission-manager.js';
+import { updateMissions, reportKill, getMissionMarker, getMissionState } from './missions/mission-manager.js';
 import { updateVehicles, isPlayerDriving, getPlayerVehicle } from './vehicles/vehicle-system.js';
 import { updateHelicopters, isPlayerInHeli, spawnPoliceChopper } from './vehicles/helicopter-system.js';
 import { updateRadio } from './audio/radio.js';
 import { initEconomy, updateEconomy } from './shops/economy-system.js';
 import { updateStory } from './missions/story.js';
 import { updateInteriors } from './interiors/interior-system.js';
-import { buildings } from './city.js';
+import { buildings, updateCity, getPlayerSpawn } from './city.js';
 import { updatePlayer, syncPlayerLookFromCamera } from './controls.js';
+import { updatePickups } from './weapons/pickups.js';
+import { getIsSuperpowersMode } from './player/inventory.js';
+import { updateWeaponSystem, getIsReloading } from './weapons/weapon-system.js';
+import { updateFeel } from './core/feel.js';
 
 // ── State ────────────────────────────────────────────────────
 let controlsHintTimer = 0;
@@ -60,7 +66,7 @@ export function setMovementFlags(flags) {
  * @returns {{ lastPlayerPos: {x: number, z: number} }}
  */
 export function tick(ctx) {
-    const { scene, camera, renderer, composer, delta, elapsed, lastPlayerPos } = ctx;
+    const { scene, camera, renderer, composer, delta, elapsed, lastPlayerPos, player } = ctx;
     const dt = Math.min(delta, 0.05); // Cap delta at 50ms (20fps floor)
 
     updateWeather(0, 0, lastPlayerPos, scene);
@@ -100,8 +106,20 @@ export function tick(ctx) {
 
         if (respawnTimer <= 0) {
             respawnPlayer();
+            if (player) {
+                const sp = getPlayerSpawn();
+                player.x = sp.x;
+                player.y = 0;
+                player.z = sp.z;
+                player.vy = 0;
+                player.velX = 0;
+                player.velZ = 0;
+                player.yaw = sp.yaw;
+                player.viewYaw = sp.yaw;
+                player.pitch = 0;
+            }
             hideDeathScreen();
-            // State will transition back to PLAYING
+            setState(GAME_STATES.PLAYING);
         }
 
         // Still render scene (greyscale effect could be applied)
@@ -112,8 +130,7 @@ export function tick(ctx) {
     }
 
     // ── PLAYING state ────────────────────────────────────────
-    const player = ctx.player || { x: 0, y: 0, z: 0 };
-    const playerPos = { x: player.x, z: player.z };
+    const playerPos = { x: player?.x || 0, z: player?.z || 0 };
 
     // Player stats (health regen, stamina)
     updatePlayerStats(dt, sprintFlag);
@@ -121,6 +138,7 @@ export function tick(ctx) {
     // Check death
     if (isPlayerDead()) {
         respawnTimer = RESPAWN_TIME;
+        setState(GAME_STATES.DEAD);
         showDeathScreen(respawnTimer);
         return { lastPlayerPos: playerPos };
     }
@@ -130,6 +148,10 @@ export function tick(ctx) {
 
         // Camera
         updateCamera(dt, player.x, player.y, player.z, playerYaw, playerPitch, sprintFlag, aimFlag, headBobOffset);
+        
+        // Player Model
+        const isMoving = (player.speed || 0) > 0.4;
+        updatePlayerModel(player, isMoving, getCameraMode());
     }
     // Day/Night
     updateDayNight(dt, scene, playerPos);
@@ -144,48 +166,21 @@ export function tick(ctx) {
 
     // ── Combat Systems ───────────────────────────────────────
 
-    // Weapon system
-    updateWeaponSystem(dt, elapsed, playerPos, aimFlag, renderer);
-
-    // Check bullet hits against enemies
-    const bulletList = getBullets();
-    for (let i = bulletList.length - 1; i >= 0; i--) {
-        const b = bulletList[i];
-        const killed = damageEnemyAtPoint(
-            b.mesh.position.x, b.mesh.position.y, b.mesh.position.z,
-            b.isRocket ? 0.5 : 0.8, // hit detection radius
-            b.damage
-        );
-
-        if (killed > 0) {
-            // Remove bullet on hit (do not dispose shared geometries)
-            if (b.mesh.parent) b.mesh.parent.remove(b.mesh);
-            bulletList.splice(i, 1);
-
-            reportKill(); // Notify mission system
-            const stats = getPlayerStats();
-            const enemyCfg = { xpReward: 25 }; // Simplified
-            const result = addXP(enemyCfg.xpReward);
-            if (result.leveledUp) {
-                showToast('LEVEL UP!', `Level ${result.newLevel}`, 'level');
-            }
-            addKillFeed(`Enemy eliminated +${enemyCfg.xpReward}XP`);
-            commitCrime('SHOOT_WEAPON', player.x, player.z);
-        }
-
-        // Explosive bullets
-        if (b.hitExplosion || (b.explosive && b.lifetime <= 0)) {
-            createExplosion(b.mesh.position.x, b.mesh.position.y, b.mesh.position.z,
-                b.explosionRadius || 5, b.damage || 100);
-            addCameraShake(0.08, 0.3);
-            commitCrime('EXPLOSION', player.x, player.z);
-        }
+    // Combat updates (Superpowers or Weapon system)
+    if (getIsSuperpowersMode()) {
+        updatePowersSystem(dt, elapsed, playerPos, aimFlag);
+    } else {
+        updateWeaponSystem(dt, elapsed, playerPos, aimFlag, renderer);
     }
 
-    // Alert enemies near gunfire
-    if (bulletList.length > 0) {
-        alertEnemiesNear(player.x, player.z, 50);
-    }
+    // City collapses update
+    updateCity(dt);
+
+    // Street pickups update
+    updatePickups(dt, elapsed, playerPos);
+
+    // Level System (Wave Spawning)
+    updateLevelSystem(dt);
 
     // Enemy system
     const enemyResult = updateEnemies(dt, elapsed, player.x, player.z);
@@ -234,14 +229,27 @@ export function tick(ctx) {
 
     // ── HUD ──────────────────────────────────────────────────
     const stats = getPlayerStats();
-    const weapon = getCurrentWeapon();
-    const ammo = getAmmo();
-    const weaponInfo = {
-        name: weapon.name || 'Fists',
-        ammoClip: ammo.clip,
-        ammoReserve: ammo.reserve,
-        maxClip: ammo.maxClip,
-    };
+    let weaponInfo;
+    if (getIsSuperpowersMode()) {
+        const pInfo = getCurrentPowerInfo();
+        weaponInfo = {
+            name: pInfo.name || 'Power',
+            ammoClip: pInfo.cd > 0 ? (Math.ceil(pInfo.cd * 10) / 10) + 's' : 'READY',
+            ammoReserve: pInfo.cd > 0 ? 'CD' : '∞',
+            maxClip: 1,
+            color: pInfo.color
+        };
+    } else {
+        const wep = getCurrentWeapon();
+        const ammo = getAmmo();
+        weaponInfo = {
+            name: wep.name,
+            ammoClip: getIsReloading() ? 'RELOAD' : (wep.clipSize === Infinity ? '∞' : ammo.clip),
+            ammoReserve: wep.clipSize === Infinity ? '' : '/' + ammo.reserve,
+            maxClip: wep.clipSize,
+            color: '#FFCC00'
+        };
+    }
 
     const damageDir = getDamageDirection();
     const enemyData = [];
@@ -258,6 +266,16 @@ export function tick(ctx) {
         damageDir,
         getMissionMarker()
     );
+
+    const missionState = getMissionState();
+    if (missionState) {
+        updateMissionHUD(missionState.isActive, missionState.title, missionState.text, missionState.timer);
+    } else {
+        updateMissionHUD(false);
+    }
+
+    // ── Game-feel overlay (damage numbers, hit markers, flash) ──
+    updateFeel(dt);
 
     // ── Render ───────────────────────────────────────────────
     if (composer) composer.render(dt);

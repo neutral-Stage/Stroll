@@ -9,14 +9,16 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+import { setupEnvironment } from './render/env.js';
 
 import {
     PLAYER_QUIPS, THOUGHT_MIN_DELAY, THOUGHT_EXTRA_DELAY, THOUGHT_DISPLAY_TIME,
     PLAYER_HEIGHT, FEATURE_WEAPON, GAME_STATES, FOG_COLOR, FOG_DENSITY,
 } from './config.js';
 import { setupLighting, setupFog, setupSkybox, setupGround } from './lighting.js';
-import { generateCity } from './city.js';
+import { generateCity, getPlayerSpawn } from './city.js';
 import { generateNPCs } from './npcs.js';
 import { detectMobile, setupControls, setupMobileControls, setupResize, player } from './controls.js';
 import { setupSoundToggle } from './audio.js';
@@ -32,8 +34,10 @@ import { setState, getState, onStateChange } from './core/state-machine.js';
 import { createPlayer, getPlayerStats } from './player/player.js';
 import { initInventory } from './player/inventory.js';
 import { initCamera } from './camera/camera-controller.js';
-import { initWeaponSystem, updateWeaponSystem, resizeWeaponView } from './weapons/weapon-system.js';
+import { initFeel } from './core/feel.js';
+import { createPowersSystem } from './weapons/powers-system.js';
 import { initEnemies, spawnEnemy } from './enemies/enemy-manager.js';
+import { initLevelSystem } from './systems/level-system.js';
 import { initExplosions } from './destruction/explosions.js';
 import { initHUD, setupPauseMenu, togglePause, getIsPaused, showToast, showMissionText } from './hud.js';
 import { initVehicles, spawnVehicle } from './vehicles/vehicle-system.js';
@@ -42,6 +46,9 @@ import { toggleRadio, nextStation } from './audio/radio.js';
 import { initStory } from './missions/story.js';
 import { initInteriors } from './interiors/interior-system.js';
 import { initSkillsUI } from './ui/skills-ui.js';
+import { initPlayerModel } from './player/player-model.js';
+import { initWeaponSystem } from './weapons/weapon-system.js';
+import { initPickups } from './weapons/pickups.js';
 
 /** @type {THREE.Scene} */
 let scene;
@@ -53,6 +60,7 @@ let renderer;
 let composer;
 let bloomPass = null;
 let fxaaPass = null;
+let ssaoPass = null;
 /** @type {THREE.Clock} */
 let clock;
 let elapsed = 0;
@@ -97,6 +105,7 @@ function initCore() {
     setupLighting(scene);
     setupFog(scene);
     setupSkybox(scene);
+    setupEnvironment(scene, renderer);
     setupGround(scene);
 
     updateLoadingProgress(10, 'Generating city...');
@@ -117,9 +126,13 @@ function initCore() {
     createPlayer();
     initInventory();
     initCamera(camera);
+    initFeel(camera);
+    initPlayerModel(scene);
     initEnemies(scene);
     initExplosions(scene);
+    createPowersSystem(scene, camera, null);
     initWeaponSystem(scene, camera, renderer);
+    initPickups(scene);
     initVehicles(scene, camera);
     initHelicopters(scene, camera);
     initEconomy(scene);
@@ -132,7 +145,6 @@ function initCore() {
     setupControls(renderer, camera);
     setupMobileControls();
     setupResize(camera, renderer, composer, () => {
-        resizeWeaponView();
         updateFxaaResolution();
     });
     setupSoundToggle();
@@ -150,8 +162,14 @@ function initCore() {
         if (gameHud) gameHud.style.display = '';
         showMissionText('Welcome to the Stroll.', 3);
 
-        // Spawn initial enemies in the world
-        spawnInitialEnemies();
+        // Start wave system instead of initial ambient enemies
+        initLevelSystem();
+
+        // Spawn some initial vehicles
+        spawnVehicle(15, -15, 0x1E88E5);
+        spawnVehicle(-20, 30, 0xE53935);
+        spawnVehicle(40, -40, 0x43A047);
+        spawnHelicopter(20, 0, -20, 0x111111);
     });
 
     // ── Schedule thought/quip ────────────────────────────────
@@ -173,29 +191,6 @@ function initCore() {
     });
 }
 
-function spawnInitialEnemies() {
-    // Spawn a few enemies in various districts
-    const spawnPoints = [
-        { type: 'thug', x: 30, z: 30 },
-        { type: 'thug', x: -40, z: 50 },
-        { type: 'gang_member', x: 60, z: -80 },
-        { type: 'gang_member', x: -60, z: -100 },
-        { type: 'enforcer', x: 100, z: -120 },
-        { type: 'thug', x: -80, z: 40 },
-        { type: 'gang_member', x: 80, z: 100 },
-        { type: 'thug', x: -30, z: -50 },
-    ];
-
-    for (const sp of spawnPoints) {
-        spawnEnemy(sp.type, sp.x, sp.z);
-    }
-
-    // Spawn some vehicles
-    spawnVehicle(15, -15, 0x1E88E5);
-    spawnVehicle(-20, 30, 0xE53935);
-    spawnVehicle(40, -40, 0x43A047);
-    spawnHelicopter(20, 0, -20, 0x111111);
-}
 
 function setupGameInput() {
     // Keyboard input
@@ -223,11 +218,11 @@ function setupGameInput() {
         }
     });
 
-    // Mouse wheel for weapon switching
+    // Mouse wheel for power switching
     document.addEventListener('wheel', (e) => {
         if (getState() !== GAME_STATES.PLAYING) return;
-        const { cycleWeapon } = require('./player/inventory.js');
-        // Handled inline to avoid circular imports
+        const dir = Math.sign(e.deltaY);
+        import('./weapons/powers-system.js').then(m => m.cyclePower(dir));
     });
 
     // Start game button
@@ -236,6 +231,12 @@ function setupGameInput() {
         startBtn.addEventListener('click', () => {
             const menuEl = document.getElementById('main-menu');
             if (menuEl) menuEl.classList.remove('active');
+            // Start the player on a sidewalk beside a road, not on the fountain.
+            const spawn = getPlayerSpawn();
+            player.x = spawn.x; player.z = spawn.z; player.y = 0;
+            player.yaw = spawn.yaw; player.viewYaw = spawn.yaw;
+            player.pitch = 0; player.viewPitch = 0;
+            player.velX = 0; player.velZ = 0;
             setState(GAME_STATES.PLAYING);
         });
     }
@@ -265,17 +266,30 @@ function setupScene() {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 0.85;
+        renderer.toneMappingExposure = 1.2;
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         document.body.appendChild(renderer.domElement);
 
         composer = new EffectComposer(renderer);
-        composer.addPass(new RenderPass(scene, camera));
+
+        // Screen-space ambient occlusion (tier-gated). SSAOPass renders the
+        // scene itself, so it replaces the plain RenderPass when enabled.
+        if (q.ssao) {
+            ssaoPass = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight);
+            ssaoPass.kernelRadius = 10;
+            ssaoPass.minDistance = 0.0015;
+            ssaoPass.maxDistance = 0.12;
+            composer.addPass(ssaoPass);
+        } else {
+            composer.addPass(new RenderPass(scene, camera));
+        }
 
         if (q.bloom) {
+            // Selective bloom: high threshold so only emissive windows/lamps/
+            // muzzle flashes glow, not the whole mid-tone scene.
             bloomPass = new UnrealBloomPass(
                 new THREE.Vector2(window.innerWidth, window.innerHeight),
-                0.5, 0.5, 0.7
+                0.75, 0.6, 0.82
             );
             composer.addPass(bloomPass);
         }
@@ -371,7 +385,7 @@ function animate() {
 
     const result = tick({
         scene, camera, renderer, composer, delta, elapsed, lastPlayerPos,
-        player: { x: player.pos?.x || 0, y: 0, z: player.pos?.z || 0 },
+        player
     });
     lastPlayerPos = result.lastPlayerPos;
 }

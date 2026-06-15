@@ -7,8 +7,12 @@ import * as THREE from 'three';
 import { MAX_DEBRIS_PARTICLES, FIRE_DURATION, FIRE_DAMAGE_PER_SECOND, EXPLOSION_CHAIN_RADIUS } from '../config.js';
 import { queryNearby, damageEntity } from '../core/entity-manager.js';
 import { createBody, integrateBody, dist2D } from '../core/physics.js';
-import { damageBuildingAtPoint } from '../city.js';
+import { damageBuildingAtPoint, damagePropsAtPoint } from '../city.js';
 import { damageVehicleAtPoint } from '../vehicles/vehicle-system.js';
+import { damageTrafficAtPoint } from '../traffic.js';
+import { damageEnemyAtPoint } from '../enemies/enemy-manager.js';
+import { damageNPCAtPoint, alertNPCsToDanger } from '../npcs.js';
+import { shake, screenFlash } from '../core/feel.js';
 
 /** @type {THREE.Scene} */
 let sceneRef = null;
@@ -146,7 +150,7 @@ export function createExplosion(x, y, z, radius, damage) {
     ring.rotation.x = Math.PI / 2;
     ring.position.set(x, 0.3, z);
     sceneRef.add(ring);
-    shockwaves.push({ mesh: ring, maxRadius: radius * 2, lifetime: 0.4, age: 0 });
+    shockwaves.push({ mesh: ring, maxRadius: radius * 2, lifetime: 0.7, age: 0 });
 
     // Spawn debris
     spawnDebris(x, y, z, 15 + Math.floor(radius * 2), radius * 3);
@@ -157,12 +161,17 @@ export function createExplosion(x, y, z, radius, damage) {
     // Spawn smoke
     spawnSmoke(x, y + 1, z, 8);
 
-    // Area damage to entities
+    // Game-feel: camera shake + screen flash scaled by blast size.
+    shake(Math.min(0.09, 0.02 + radius * 0.012), 0.2);
+    screenFlash('#ff7a1a', Math.min(0.42, radius * 0.045), 5);
+    // Civilians scatter from the blast (wider radius than the damage).
+    alertNPCsToDanger(x, z, radius * 5, 4.5);
+
+    // Area damage to entities (knockback computed first, applied below).
     const nearby = queryNearby(x, z, radius, 'enemy');
     for (const e of nearby) {
         const dist = dist2D(e.x, e.z, x, z);
         const falloff = Math.max(0, 1 - dist / radius);
-        damageEntity(e.id, Math.floor(damage * falloff));
         
         // Ragdoll/Knockback hint
         if (dist > 0.1) {
@@ -172,11 +181,11 @@ export function createExplosion(x, y, z, radius, damage) {
         }
     }
 
-    // Damage buildings
-    damageBuildingAtPoint(sceneRef, x, y, z, radius * 1.5, damage);
-
-    // Damage vehicles (Chain Reactions!)
-    damageVehicleAtPoint(x, z, radius * 1.5, damage);
+    damageEnemyAtPoint(x, y, z, radius, damage);
+    damageVehicleAtPoint(x, z, radius, damage);
+    damageTrafficAtPoint(x, z, radius, damage);
+    damagePropsAtPoint(x, z, radius * 1.5, damage, spawnColoredDebris);
+    damageNPCAtPoint(x, z, radius, damage, spawnColoredDebris);
 
     // Sound
     playExplosionSound(radius);
@@ -223,11 +232,48 @@ function spawnDebris(x, y, z, count, force) {
         d.mesh.material.opacity = 1;
         d.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
 
+        d.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+
         spawned++;
     }
 }
 
-function spawnSparks(x, y, z, count, speed) {
+export function spawnColoredDebris(x, y, z, type, count = 15, force = 10) {
+    let spawned = 0;
+    
+    let color = 0x888888;
+    if (type === 'tree') color = Math.random() > 0.5 ? 0x228b22 : 0x8b4513;
+    else if (type === 'bench') color = 0x8B6914;
+    else if (type === 'lamp') color = 0x444444;
+    else if (type === 'npc') color = 0xcc0000;
+
+    for (const d of debrisPool) {
+        if (d.active || spawned >= count) continue;
+
+        d.active = true;
+        d.mesh.visible = true;
+        d.body.x = x + (Math.random() - 0.5) * 2;
+        d.body.y = y + Math.random() * 2;
+        d.body.z = z + (Math.random() - 0.5) * 2;
+        d.body.vx = (Math.random() - 0.5) * force;
+        d.body.vy = Math.random() * force * 0.7 + 2;
+        d.body.vz = (Math.random() - 0.5) * force;
+        d.body.grounded = false;
+        d.rotSpeed.set(
+            (Math.random() - 0.5) * 10,
+            (Math.random() - 0.5) * 10,
+            (Math.random() - 0.5) * 10
+        );
+        d.settledTime = 0;
+        d.mesh.material.opacity = 1;
+        d.mesh.material.color.setHex(color);
+        d.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+
+        spawned++;
+    }
+}
+
+export function spawnSparks(x, y, z, count, speed) {
     let spawned = 0;
     for (const s of sparkPool) {
         if (s.active || spawned >= count) continue;
@@ -245,7 +291,7 @@ function spawnSparks(x, y, z, count, speed) {
     }
 }
 
-function spawnSmoke(x, y, z, count) {
+export function spawnSmoke(x, y, z, count) {
     let spawned = 0;
     for (const s of smokePool) {
         if (s.active || spawned >= count) continue;
@@ -426,10 +472,7 @@ export function updateExplosions(delta, elapsed, playerX, playerZ) {
         fp.damageTimer -= delta;
         if (fp.damageTimer <= 0) {
             fp.damageTimer = 0.5;
-            const nearby = queryNearby(fp.x, fp.z, fp.radius, 'enemy');
-            for (const e of nearby) {
-                damageEntity(e.id, Math.floor(FIRE_DAMAGE_PER_SECOND * 0.5));
-            }
+            damageEnemyAtPoint(fp.x, 0, fp.z, fp.radius, Math.floor(FIRE_DAMAGE_PER_SECOND * 0.5));
         }
 
         // Expire

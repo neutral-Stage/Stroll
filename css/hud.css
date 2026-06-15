@@ -95,6 +95,12 @@
     color: var(--clr-cash);
     text-shadow: 0 0 8px rgba(0, 255, 136, 0.3);
     letter-spacing: 0.03em;
+    transition: transform 0.15s ease-out, color 0.15s ease-out;
+}
+.hud-cash.pulse-cash {
+    color: #55FF88 !important;
+    transform: scale(1.25);
+    text-shadow: 0 0 15px rgba(85, 255, 136, 0.6);
 }
 
 .hud-level {
@@ -169,6 +175,48 @@
     padding: var(--sp-1) var(--sp-3);
     border-radius: var(--radius-sm);
     letter-spacing: 0.05em;
+}
+
+/* ─── MISSION INFO (TOP RIGHT) ─── */
+.mission-info {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(6px);
+    border-radius: var(--radius-md);
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    text-align: right;
+    margin-top: var(--sp-2);
+    min-width: 160px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.mission-info-title {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--clr-mission, #ffd700);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.mission-info-objective {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    color: var(--clr-text-bright);
+    margin-top: 2px;
+}
+
+.mission-info-timer {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #ff4444;
+    margin-top: var(--sp-1);
+    text-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
+    display: none;
+}
+.mission-info-timer.active {
+    display: block;
 }
 
 /* ─── BOTTOM LEFT: Minimap ─── */
@@ -304,4 +352,69 @@
 @keyframes missionTextIn {
     from { opacity: 0; transform: translateX(-50%) scale(0.8); }
     to { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+/* ─── WAVE UI (TOP CENTER) ─── */
+.wave-ui {
+    position: absolute;
+    top: var(--sp-4);
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-md);
+    padding: var(--sp-2) var(--sp-4);
+    min-width: 200px;
+    display: none;
+}
+.wave-ui.visible {
+    display: block;
+    animation: waveDrop 0.5s var(--ease-spring);
+}
+.wave-ui-title {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--clr-accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px rgba(255, 68, 68, 0.4);
+}
+.wave-ui-subtext {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--clr-text-bright);
+    margin-top: 2px;
+}
+.wave-transition {
+    position: fixed;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.5);
+    font-family: var(--font-display);
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--clr-accent);
+    text-shadow: 0 0 30px rgba(255, 68, 68, 0.6), 0 4px 10px rgba(0, 0, 0, 0.8);
+    opacity: 0;
+    pointer-events: none;
+    z-index: var(--z-overlay);
+    text-align: center;
+}
+.wave-transition.animate {
+    animation: waveComplete 3s forwards;
+}
+
+@keyframes waveDrop {
+    from { transform: translate(-50%, -20px); opacity: 0; }
+    to { transform: translate(-50%, 0); opacity: 1; }
+}
+@keyframes waveComplete {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    25% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
 }

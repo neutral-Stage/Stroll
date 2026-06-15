@@ -12,16 +12,18 @@
 
 import * as THREE from 'three';
 import {
-    WALK_SPEED, LOOK_SPEED, TOUCH_LOOK_SPEED, PLAYER_HEIGHT,
+    WALK_SPEED, SPRINT_SPEED, LOOK_SPEED, TOUCH_LOOK_SPEED, PLAYER_HEIGHT,
     COLLISION_PADDING, CITY_SIZE, CITY_BOUND_MARGIN,
     HEAD_BOB_SPEED, HEAD_BOB_AMOUNT, HEAD_BOB_THRESHOLD,
     CONTROLS_HINT_FADE_DELAY
 } from './config.js';
 import { isInsideBuilding, isBlockedByTree } from './city.js';
 import { canPlayerMove } from './player-input.js';
+import { getPlayerStats } from './player/player.js';
+import { toggleCameraMode } from './camera/camera-controller.js';
 
 /** Player state */
-export const player = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, vy: 0 };
+export const player = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, vy: 0, velX: 0, velZ: 0, speed: 0, maxSpeed: 1, sprinting: false, aiming: false };
 
 /** Keyboard state */
 const keys = {};
@@ -82,6 +84,10 @@ export function setupControls(renderer, camera) {
         keys[e.code] = true;
         keys[e.key] = true;
         if (e.code === 'Space') keys['Space'] = true;
+        // Camera toggle
+        if (e.code === 'KeyV' || e.key === 'v' || e.key === 'V') {
+            toggleCameraMode();
+        }
         // Sound toggle shortcut
         if (e.key === 'm' || e.key === 'M') {
             const toggle = document.getElementById('sound-toggle');
@@ -121,6 +127,24 @@ export function setupControls(renderer, camera) {
         player.yaw -= e.movementX * LOOK_SPEED;
         player.pitch -= e.movementY * LOOK_SPEED;
         player.pitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, player.pitch));
+    });
+
+    document.addEventListener('mousedown', (e) => {
+        if (e.button === 2) { // Right click
+            player.aiming = true;
+        }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+        if (e.button === 2) {
+            player.aiming = false;
+        }
+    });
+
+    document.addEventListener('contextmenu', (e) => {
+        if (isPointerLocked) {
+            e.preventDefault();
+        }
     });
 }
 
@@ -250,14 +274,34 @@ export function updatePlayer(delta, camera) {
         moveZ /= len;
     }
 
-    // Apply movement relative to camera direction
-    const baseSpeed = isWater ? (WALK_SPEED * 0.5) : WALK_SPEED;
-    const speed = baseSpeed * delta * 60;
+    // Determine if sprinting
+    const stats = getPlayerStats();
+    const isSprintingRequested = keys['ShiftLeft'] || keys['ShiftRight'] || keys['Shift'];
+    const sprinting = isSprintingRequested && stats.canSprint && len > 0.01;
+    player.sprinting = sprinting;
+
+    // Apply movement relative to camera direction, with acceleration/inertia
+    // so the character carries weight instead of snapping 0 → full speed.
+    const rawSpeed = sprinting ? SPRINT_SPEED : WALK_SPEED;
+    const baseSpeed = isWater ? (rawSpeed * 0.5) : rawSpeed;
+    const targetSpeed = baseSpeed * 60; // units/sec (baseSpeed was per-60fps-frame)
     const sinYaw = Math.sin(player.yaw);
     const cosYaw = Math.cos(player.yaw);
 
-    const newX = player.x + (moveX * cosYaw + moveZ * sinYaw) * speed;
-    const newZ = player.z + (-moveX * sinYaw + moveZ * cosYaw) * speed;
+    let desiredVX = 0;
+    let desiredVZ = 0;
+    if (len > 0.001) {
+        desiredVX = (moveX * cosYaw + moveZ * sinYaw) * targetSpeed;
+        desiredVZ = (-moveX * sinYaw + moveZ * cosYaw) * targetSpeed;
+    }
+    // Ease toward the desired velocity; stop a touch faster than we start.
+    const accelRate = (len > 0.001) ? 11 : 16;
+    const ease = 1 - Math.exp(-accelRate * delta);
+    player.velX += (desiredVX - player.velX) * ease;
+    player.velZ += (desiredVZ - player.velZ) * ease;
+
+    const newX = player.x + player.velX * delta;
+    const newZ = player.z + player.velZ * delta;
 
     // Jump / Vault (only if on solid ground)
     if (keys['Space'] && player.y === groundLevel && !isWater && canPlayerMove()) {
@@ -273,9 +317,18 @@ export function updatePlayer(delta, camera) {
         player.z = newZ;
     } else if (!blocked(newX, player.z)) {
         player.x = newX;
+        player.velZ = 0; // slide along the wall, kill into-wall momentum
     } else if (!blocked(player.x, newZ)) {
         player.z = newZ;
+        player.velX = 0;
+    } else {
+        player.velX = 0;
+        player.velZ = 0;
     }
+
+    // Expose planar speed for the animation system + head bob.
+    player.speed = Math.hypot(player.velX, player.velZ);
+    player.maxSpeed = targetSpeed;
 
     // Clamp to massive ocean bounds instead of city bounds
     const oceanBound = 1000;
@@ -296,9 +349,11 @@ export function updatePlayer(delta, camera) {
     }
 
     let headBob = 0;
-    if (len > HEAD_BOB_THRESHOLD && player.y === 0) {
-        bobPhase += delta * HEAD_BOB_SPEED;
-        headBob = Math.abs(Math.sin(bobPhase)) * HEAD_BOB_AMOUNT;
+    if (player.speed > 0.5 && player.y === 0) {
+        // Bob cadence tracks actual speed so it syncs with footfalls.
+        bobPhase += delta * HEAD_BOB_SPEED * (0.4 + player.speed / Math.max(0.1, targetSpeed));
+        const intensity = Math.min(1, player.speed / Math.max(0.1, targetSpeed));
+        headBob = Math.abs(Math.sin(bobPhase)) * HEAD_BOB_AMOUNT * intensity;
     }
     player.headBob = headBob;
 

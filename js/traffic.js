@@ -6,20 +6,22 @@
 import * as THREE from 'three';
 import { CITY_SIZE, HALF_CITY, CELL_SIZE, STREET_WIDTH, TRAFFIC_CULL_DISTANCE } from './config.js';
 import { getQuality } from './quality.js';
+import { createExplosion } from './destruction/explosions.js';
+import { reportDestroy } from './missions/mission-manager.js';
 
 /** @type {Array<CarData>} */
-const cars = [];
+export const cars = [];
 
-const MAX_CARS = 4;
+const MAX_CARS = 10; // distance-culled, so cheap; was a near-empty 4
 
 const CAR_COLORS = [
     0xE53935, 0x1E88E5, 0x43A047, 0xFDD835,
     0xFF9800, 0x8E24AA, 0x00ACC1, 0x5D4037,
 ];
 
-/** Frame-normalized speeds → ~1.2–2.2 u/s at 60fps */
-const CAR_MIN_SPEED = 0.02;
-const CAR_MAX_SPEED = 0.037;
+/** Frame-normalized speeds → ~3.0–5.4 u/s at 60fps (was a glacial 1.2–2.2) */
+const CAR_MIN_SPEED = 0.05;
+const CAR_MAX_SPEED = 0.09;
 
 const RESPAWN_DISTANCE = 140;
 const RESPAWN_MIN_PLAYER_DIST = 55;
@@ -46,6 +48,44 @@ export function createTraffic(scene) {
     }
 }
 
+/**
+ * Damages ambient traffic within a radius.
+ * @param {number} x
+ * @param {number} z
+ * @param {number} radius
+ * @param {number} damage
+ */
+export function damageTrafficAtPoint(x, z, radius, damage) {
+    cars.forEach((car) => {
+        if (!car.mesh || car.culled || car.destroyed) return;
+
+        const dx = car.mesh.position.x - x;
+        const dz = car.mesh.position.z - z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+
+        if (dist <= radius) {
+            car.health -= damage;
+            if (car.health <= 0) {
+                car.health = 0;
+                car.destroyed = true;
+                car.speed = 0;
+                
+                reportDestroy();
+                
+                // Darken the car's body material to look burnt
+                if (car.mesh.children[0] && car.mesh.children[0].material) {
+                    car.mesh.children[0].material.color.setHex(0x222222);
+                }
+                
+                // Trigger an explosion slightly after to avoid deep recursion
+                setTimeout(() => {
+                    createExplosion(car.mesh.position.x, car.mesh.position.y, car.mesh.position.z, 4, 50);
+                }, 50);
+            }
+        }
+    });
+}
+
 export function updateTraffic(delta, playerPos) {
     const cullDist = getQuality().trafficCullDistance || TRAFFIC_CULL_DISTANCE;
 
@@ -66,7 +106,9 @@ export function updateTraffic(delta, playerPos) {
 
         if (car.culled) {
             car.culled = false;
-            respawnCar(car, playerPos);
+            if (!car.destroyed) {
+                respawnCar(car, playerPos);
+            }
             return;
         }
 
@@ -75,6 +117,16 @@ export function updateTraffic(delta, playerPos) {
             car.mesh.position.x += move;
         } else {
             car.mesh.position.z += move;
+        }
+
+        // Gravity for traffic cars in the air
+        if (car.mesh.position.y > 0.5 || car.vy) {
+            car.vy = (car.vy || 0) - 20 * delta;
+            car.mesh.position.y += car.vy * delta;
+            if (car.mesh.position.y <= 0.5) {
+                car.mesh.position.y = 0.5;
+                car.vy = 0;
+            }
         }
 
         const outOfCity =
@@ -98,6 +150,8 @@ function spawnCar(scene) {
     car.axis = data.axis;
     car.laneOffset = data.laneOffset;
     car.culled = false;
+    car.health = 100;
+    car.destroyed = false;
 
     scene.add(car.mesh);
     cars.push(car);
@@ -117,11 +171,14 @@ function respawnCar(car, playerPos) {
     car.direction = data.direction;
     car.axis = data.axis;
     car.laneOffset = data.laneOffset;
+    car.health = 100;
+    car.destroyed = false;
 
     const bodyMat = new THREE.MeshLambertMaterial({
         color: CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)],
     });
     car.mesh.children[0].material = bodyMat;
+    car.mesh.children[1].material = bodyMat;
 }
 
 /**
@@ -154,9 +211,11 @@ function getRandomStreetPosition(playerPos) {
         const pdz = z - playerPos.z;
         if (pdx * pdx + pdz * pdz < RESPAWN_MIN_PLAYER_DIST * RESPAWN_MIN_PLAYER_DIST) {
             const push = RESPAWN_MIN_PLAYER_DIST + 10;
-            const len = Math.hypot(pdx, pdz) || 1;
-            x = playerPos.x + (pdx / len) * push;
-            z = playerPos.z + (pdz / len) * push;
+            if (axis === 'x') {
+                x = playerPos.x + Math.sign(pdx || 1) * push;
+            } else {
+                z = playerPos.z + Math.sign(pdz || 1) * push;
+            }
         }
     } else if (axis === 'x') {
         x = (Math.random() - 0.5) * CITY_SIZE;
@@ -233,5 +292,7 @@ function createCarMesh() {
         axis: 'x',
         laneOffset: 0,
         culled: false,
+        health: 100,
+        destroyed: false,
     };
 }

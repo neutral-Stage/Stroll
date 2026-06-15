@@ -21,24 +21,45 @@ import {
     WINDOW_SIZE, WINDOW_ASPECT, WINDOW_SPACING_Y, WINDOW_SPACING_X, WINDOW_SKIP_CHANCE,
     ROOFTOP_DETAIL_CHANCE,
     TREE_COUNT, BENCH_COUNT, LAMP_COUNT, MAX_ACTIVE_LIGHTS,
-    BUILDING_COLORS, FOLIAGE_COLORS
+    BUILDING_COLORS, FOLIAGE_COLORS,
 } from './config.js';
+import { spawnColoredDebris, spawnSmoke } from './destruction/explosions.js';
+import { reportDestroy } from './missions/mission-manager.js';
 
 // ── Shared materials (created once, reused everywhere) ───────
-const buildingMats = BUILDING_COLORS.map(c => new THREE.MeshLambertMaterial({ color: c }));
-const windowLitMat = new THREE.MeshBasicMaterial({ color: 0xFFE082, transparent: true, opacity: 0.5 });
-const windowDimMat = new THREE.MeshBasicMaterial({ color: 0xFFF8E1, transparent: true, opacity: 0.2 });
-const sidewalkMat = new THREE.MeshLambertMaterial({ color: 0xC8C0B0 });
-const stoneMat = new THREE.MeshLambertMaterial({ color: 0xBDBDBD });
-const waterMat = new THREE.MeshLambertMaterial({ color: 0x4FC3F7, transparent: true, opacity: 0.7 });
-const woodMat = new THREE.MeshLambertMaterial({ color: 0x8D6E63 });
-const metalMat = new THREE.MeshLambertMaterial({ color: 0x424242 });
-const poleMat = new THREE.MeshLambertMaterial({ color: 0x37474F });
-const lampGlowMat = new THREE.MeshBasicMaterial({ color: 0xFFE082 }); // emissive glow — no PointLight needed
-const trunkMat = new THREE.MeshLambertMaterial({ color: 0x795548 });
-const rooftopMat = new THREE.MeshLambertMaterial({ color: 0x9E9E9E });
-const parkGrassMat = new THREE.MeshLambertMaterial({ color: 0x7CB342 });
-const pathMat = new THREE.MeshLambertMaterial({ color: 0xBCAAA4 });
+// PBR materials. Standard responds to the env map + sun for real specular
+// and depth; Lambert was flat and toy-like. Buildings vary roughness slightly
+// so a row of them doesn't read as one identical surface.
+const buildingMats = BUILDING_COLORS.map((c, i) => new THREE.MeshStandardMaterial({
+    color: c,
+    roughness: 0.72 + (i % 3) * 0.08,
+    metalness: 0.05,
+}));
+// Windows are emissive "glass": they glow and drive the selective bloom pass.
+const windowLitMat = new THREE.MeshStandardMaterial({
+    color: 0x101015, emissive: 0xFFE082, emissiveIntensity: 1.15,
+    roughness: 0.22, metalness: 0.0, transparent: true, opacity: 0.95,
+});
+const windowDimMat = new THREE.MeshStandardMaterial({
+    color: 0x1d212a, emissive: 0x33405a, emissiveIntensity: 0.35,
+    roughness: 0.18, metalness: 0.12, transparent: true, opacity: 0.85,
+});
+const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0xE8DEC8, roughness: 0.85, metalness: 0.02 }); // Warm light stone
+const stoneMat = new THREE.MeshStandardMaterial({ color: 0xCBBEB4, roughness: 0.92, metalness: 0.02 }); // Light beige street
+const waterMat = new THREE.MeshStandardMaterial({ color: 0x1E90B8, roughness: 0.12, metalness: 0.2, transparent: true, opacity: 0.72 }); // Reflective water
+const woodMat = new THREE.MeshStandardMaterial({ color: 0x8D6E63, roughness: 0.8, metalness: 0.0 });
+const metalMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3e, roughness: 0.4, metalness: 0.85 });
+const poleMat = new THREE.MeshStandardMaterial({ color: 0x37474F, roughness: 0.5, metalness: 0.6 });
+const lampGlowMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xFFD27A, emissiveIntensity: 2.2 }); // bright glow → bloom
+const trunkMat = new THREE.MeshStandardMaterial({ color: 0xC4A484, roughness: 0.9, metalness: 0.0 }); // Lighter palm trunk
+const foliageMats = FOLIAGE_COLORS.map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0.0 }));
+const rooftopMat = new THREE.MeshLambertMaterial({ color: 0xcccccc }); // Lighter rooftops
+const parkGrassMat = new THREE.MeshLambertMaterial({ color: 0x81C784 }); // Brighter green
+const pathMat = new THREE.MeshLambertMaterial({ color: 0xF5DEB3 }); // Sand/path color
+
+const palmLeafGeo = new THREE.BoxGeometry(0.8, 0.1, 3.0); // Palm leaf shape
+palmLeafGeo.translate(0, 0, 1.5); // Pivot at the end
+const trunkGeo = new THREE.CylinderGeometry(0.1, 0.15, 2, 5);
 
 // Shared geometries
 const windowGeo = new THREE.PlaneGeometry(WINDOW_SIZE, WINDOW_SIZE * WINDOW_ASPECT);
@@ -48,6 +69,11 @@ const sharedBuildingGeo = new THREE.BoxGeometry(1, 1, 1);
 
 /** @type {Array<{x:number, z:number, width:number, depth:number, height:number}>} */
 export const buildings = [];
+export const trees = [];
+export const benches = [];
+export const lamps = [];
+
+let sceneRef = null;
 
 /** @type {Array<{x:number, z:number}>} */
 export const lampPositions = [];
@@ -58,9 +84,6 @@ const windowTransforms = []; // { matrix: THREE.Matrix4, lit: boolean }
 // ── Collect sidewalk geometries for merging ──────────────────
 const sidewalkGeos = [];
 
-// ── Collect tree data for InstancedMesh ──────────────────────
-const treeData = []; // { x, z, large, trunkH, trunkR, foliageColor, layers }
-
 /**
  * Generate the entire city: buildings, sidewalks, park, trees, benches, lamps.
  * Call once during init.
@@ -68,6 +91,7 @@ const treeData = []; // { x, z, large, trunkH, trunkR, foliageColor, layers }
  * @param {function} onProgress - callback(percent) for loading screen
  */
 export function generateCity(scene, onProgress) {
+    sceneRef = scene;
     generateBlocks(scene, onProgress);
     buildSidewalks(scene);
     generatePark(scene);
@@ -239,27 +263,58 @@ export function damageBuildingAtPoint(scene, x, y, z, radius, damage) {
     }
 }
 
+const collapsingBuildings = [];
+
 function destroyBuilding(scene, b) {
     b.intact = false;
-    scene.remove(b.mesh);
-    if (b.mesh.geometry) b.mesh.geometry.dispose();
+    b.destroyed = true;
+    reportDestroy();
 
-    // Spawn 10-20 rubble chunks
-    const chunks = 10 + Math.random() * 10;
-    const chunkGeo = new THREE.BoxGeometry(b.width / 2, 2, b.depth / 2);
-    
-    for (let i = 0; i < chunks; i++) {
-        const chunk = new THREE.Mesh(chunkGeo, b.material);
-        chunk.position.set(
-            b.x + (Math.random() - 0.5) * b.width * 0.5,
-            Math.random() * b.height * 0.5,
-            b.z + (Math.random() - 0.5) * b.depth * 0.5
-        );
-        chunk.rotation.set(Math.random(), Math.random(), Math.random());
-        scene.add(chunk);
-        
-        // Very basic physics representation - add to a list if we want them to fall, 
-        // or just let them stay static as "rubble"
+    collapsingBuildings.push({
+        mesh: b.mesh,
+        x: b.x,
+        z: b.z,
+        y: b.mesh.position.y,
+        height: b.height,
+        targetY: -b.height - 2,
+        speed: 15.0 + Math.random() * 5.0,
+        scaleSpeed: 1.0,
+        smokeTimer: 0
+    });
+
+    // Shatter into flying chunks at several heights so the whole structure
+    // visibly breaks apart, plus dust — not just a sink.
+    const tiers = Math.max(2, Math.round(b.height / 6));
+    for (let t = 0; t < tiers; t++) {
+        const hy = (b.height * (t + 0.5)) / tiers;
+        spawnColoredDebris(b.x, hy, b.z, 'concrete', 12, 17);
+    }
+    spawnSmoke(b.x, b.height * 0.4, b.z, 6);
+}
+
+export function updateCity(delta) {
+    for (let i = collapsingBuildings.length - 1; i >= 0; i--) {
+        const cb = collapsingBuildings[i];
+        cb.mesh.position.y -= cb.speed * delta;
+        cb.mesh.scale.y -= cb.scaleSpeed * delta;
+
+        cb.smokeTimer += delta;
+        if (cb.smokeTimer > 0.1) {
+            cb.smokeTimer = 0;
+            spawnSmoke(cb.x + (Math.random() - 0.5) * 6, cb.mesh.position.y + cb.height * 0.5, cb.z + (Math.random() - 0.5) * 6, 2);
+        }
+
+        if (cb.mesh.scale.y <= 0.05 || cb.mesh.position.y <= cb.targetY) {
+            sceneRef.remove(cb.mesh);
+            cb.mesh.traverse(c => {
+                if (c.geometry) c.geometry.dispose();
+                if (c.material) {
+                    if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+                    else c.material.dispose();
+                }
+            });
+            collapsingBuildings.splice(i, 1);
+        }
     }
 }
 
@@ -324,11 +379,12 @@ function generatePark(scene) {
     for (let i = 0; i < 12; i++) {
         const angle = (i / 12) * Math.PI * 2;
         const radius = 12 + Math.random() * 6;
-        treeData.push({
-            x: Math.cos(angle) * radius,
-            z: Math.sin(angle) * radius,
-            large: true
-        });
+        createSingleTree(
+            scene,
+            Math.cos(angle) * radius,
+            Math.sin(angle) * radius,
+            true
+        );
     }
 
     // Central fountain
@@ -367,10 +423,38 @@ function createFountain(scene, x, z) {
     scene.add(top);
 }
 
-// ── Trees (InstancedMesh for trunks + foliage) ───────────────
+// ── Trees (Individual Meshes for Destruction) ───────────────
+
+export function createSingleTree(scene, x, z, large = false) {
+    const trunkHeight = (6 + Math.random() * 4) * (large ? 1.4 : 1.0);
+    const trunkRadius = (0.15 + Math.random() * 0.05) * (large ? 1.3 : 1.0);
+    const colorIdx = Math.floor(Math.random() * FOLIAGE_COLORS.length);
+
+    const group = new THREE.Group();
+    
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.scale.set(trunkRadius / 0.15, trunkHeight / 2, trunkRadius / 0.15);
+    trunk.position.y = trunkHeight / 2;
+    trunk.castShadow = true;
+    group.add(trunk);
+
+    // Palm leaves
+    const numLeaves = 6 + Math.floor(Math.random() * 4);
+    for (let l = 0; l < numLeaves; l++) {
+        const leaf = new THREE.Mesh(palmLeafGeo, foliageMats[colorIdx]);
+        leaf.position.y = trunkHeight - 0.2;
+        leaf.rotation.y = (l / numLeaves) * Math.PI * 2;
+        leaf.rotation.x = 0.4 + Math.random() * 0.2;
+        leaf.castShadow = true;
+        group.add(leaf);
+    }
+
+    group.position.set(x, 0, z);
+    scene.add(group);
+    trees.push({ x, z, mesh: group, health: 300, dead: false, type: 'tree' });
+}
 
 function generateTrees(scene) {
-    // Collect street trees
     for (let i = 0; i < TREE_COUNT; i++) {
         let x, z, attempts = 0;
         do {
@@ -380,73 +464,8 @@ function generateTrees(scene) {
         } while (isInsideBuilding(x, z) && attempts < 20);
 
         if (attempts < 20) {
-            treeData.push({ x, z, large: Math.random() < 0.3 });
+            createSingleTree(scene, x, z, false);
         }
-    }
-
-    // Build instanced meshes for all trees
-    buildTreeInstances(scene);
-}
-
-function buildTreeInstances(scene) {
-    if (treeData.length === 0) return;
-
-    // Prepare trunk instances
-    const trunkGeo = new THREE.CylinderGeometry(0.1, 0.15, 2, 5);
-    const trunkMesh = new THREE.InstancedMesh(trunkGeo, trunkMat, treeData.length);
-
-    // Prepare foliage — up to 3 layers per tree
-    const foliageLayers = [];
-    const foliageMats = FOLIAGE_COLORS.map(c => new THREE.MeshLambertMaterial({ color: c }));
-
-    // Collect all foliage cone transforms grouped by color
-    const foliageByColor = {}; // colorIdx -> [{matrix}]
-
-    const m = new THREE.Matrix4();
-    const pos = new THREE.Vector3();
-    const quat = new THREE.Quaternion();
-    const scl = new THREE.Vector3();
-
-    treeData.forEach((tree, idx) => {
-        const large = tree.large;
-        const trunkHeight = large ? 3 + Math.random() * 2 : 1.5 + Math.random() * 1.5;
-        const trunkRadius = large ? 0.3 : 0.15;
-
-        // Trunk transform
-        pos.set(tree.x, trunkHeight / 2, tree.z);
-        quat.identity();
-        scl.set(trunkRadius / 0.15, trunkHeight / 2, trunkRadius / 0.15);
-        m.compose(pos, quat, scl);
-        trunkMesh.setMatrixAt(idx, m);
-
-        // Foliage layers
-        const colorIdx = Math.floor(Math.random() * FOLIAGE_COLORS.length);
-        if (!foliageByColor[colorIdx]) foliageByColor[colorIdx] = [];
-
-        const layers = large ? 3 : 2;
-        for (let l = 0; l < layers; l++) {
-            const radius = (large ? 2.5 : 1.5) - l * 0.4;
-            const height = (large ? 2.5 : 1.8) - l * 0.3;
-            pos.set(tree.x, trunkHeight + l * (height * 0.5) + height / 2, tree.z);
-            scl.set(radius / 1.5, height / 1.8, radius / 1.5);
-            m.compose(pos, quat, scl);
-            foliageByColor[colorIdx].push(m.clone());
-        }
-    });
-
-    trunkMesh.instanceMatrix.needsUpdate = true;
-    trunkMesh.castShadow = true;
-    scene.add(trunkMesh);
-
-    // Build one InstancedMesh per foliage color
-    const coneGeo = new THREE.ConeGeometry(1.5, 1.8, 6);
-    for (const [colorIdx, transforms] of Object.entries(foliageByColor)) {
-        const mat = foliageMats[parseInt(colorIdx)];
-        const mesh = new THREE.InstancedMesh(coneGeo, mat, transforms.length);
-        transforms.forEach((mtx, i) => mesh.setMatrixAt(i, mtx));
-        mesh.instanceMatrix.needsUpdate = true;
-        mesh.castShadow = true;
-        scene.add(mesh);
     }
 }
 
@@ -491,6 +510,8 @@ function createBench(scene, x, z, rotation) {
     group.position.set(x, 0, z);
     group.rotation.y = rotation;
     scene.add(group);
+    
+    benches.push({ x, z, mesh: group, health: 100, dead: false, type: 'bench' });
 }
 
 // ── Lamp Posts ────────────────────────────────────────────────
@@ -518,32 +539,39 @@ function generateLampPosts(scene) {
 }
 
 function createLampPost(scene, x, z, hasLight) {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+
     // Pole
     const poleGeo = new THREE.CylinderGeometry(0.08, 0.12, 5, 6);
     const pole = new THREE.Mesh(poleGeo, poleMat);
-    pole.position.set(x, 2.5, z);
+    pole.position.set(0, 2.5, 0);
     pole.castShadow = true;
-    scene.add(pole);
+    group.add(pole);
 
     // Arm
     const armGeo = new THREE.BoxGeometry(1.2, 0.06, 0.06);
     const arm = new THREE.Mesh(armGeo, poleMat);
-    arm.position.set(x + 0.6, 4.8, z);
-    scene.add(arm);
+    arm.position.set(0.6, 4.8, 0);
+    group.add(arm);
 
     // Lamp head (emissive glow — always visible)
     const lampGeo = new THREE.BoxGeometry(0.5, 0.3, 0.5);
     const lamp = new THREE.Mesh(lampGeo, lampGlowMat);
-    lamp.position.set(x + 1.1, 4.65, z);
-    scene.add(lamp);
+    lamp.position.set(1.1, 4.65, 0);
+    group.add(lamp);
 
     // Only a few lamps get actual PointLights (performance)
     if (hasLight) {
         const light = new THREE.PointLight(0xFFE082, 0.25, 15);
-        light.position.set(x + 1.1, 4.5, z);
-        scene.add(light);
+        light.position.set(1.1, 4.5, 0);
+        group.add(light);
         lampPointLights.push(light);
     }
+
+    scene.add(group);
+
+    lamps.push({ x, z, mesh: group, health: 150, dead: false, type: 'lamp' });
 }
 
 // ── Collision helper ─────────────────────────────────────────
@@ -558,6 +586,7 @@ function createLampPost(scene, x, z, hasLight) {
 export function isInsideBuilding(x, z, padding = 1) {
     for (let i = 0; i < buildings.length; i++) {
         const b = buildings[i];
+        if (!b.intact || b.destroyed) continue;
         if (x > b.x - b.width / 2 - padding && x < b.x + b.width / 2 + padding &&
             z > b.z - b.depth / 2 - padding && z < b.z + b.depth / 2 + padding) {
             return true;
@@ -567,14 +596,58 @@ export function isInsideBuilding(x, z, padding = 1) {
 }
 
 /**
+ * Is (x,z) on a street? Streets run along x = n·CELL_SIZE and z = n·CELL_SIZE
+ * (the same grid the traffic uses).
+ * @param {number} x @param {number} z @param {number} [margin]
+ */
+export function isOnRoad(x, z, margin = 0) {
+    const dx = Math.abs(x - Math.round(x / CELL_SIZE) * CELL_SIZE);
+    const dz = Math.abs(z - Math.round(z / CELL_SIZE) * CELL_SIZE);
+    const half = STREET_WIDTH / 2 + margin;
+    return dx <= half || dz <= half;
+}
+
+/** Snap a point onto the nearest road, returning {x, z, axis}. */
+export function snapToRoad(x, z) {
+    const nx = Math.round(x / CELL_SIZE) * CELL_SIZE;
+    const nz = Math.round(z / CELL_SIZE) * CELL_SIZE;
+    // Whichever centerline is closer wins; keep the other coordinate free.
+    if (Math.abs(x - nx) <= Math.abs(z - nz)) {
+        return { x: nx, z, axis: 'x' }; // vertical road (varies along z)
+    }
+    return { x, z: nz, axis: 'z' };     // horizontal road (varies along x)
+}
+
+/**
+ * A spawn on a sidewalk beside a road, a couple of blocks out from the central
+ * park, never inside a building. Faces the road so traffic is in view.
+ * @returns {{x:number, z:number, yaw:number}}
+ */
+export function getPlayerSpawn() {
+    const half = STREET_WIDTH / 2;
+    for (let ring = 2; ring <= 6; ring++) {
+        const line = ring * CELL_SIZE; // a vertical street centerline
+        for (const along of [0, CELL_SIZE, -CELL_SIZE, 2 * CELL_SIZE, -2 * CELL_SIZE]) {
+            const cx = line - half - 2; // just inside the block, beside the road
+            const cz = along + half + 2;
+            if (!isInsideBuilding(cx, cz, 1)) {
+                return { x: cx, z: cz, yaw: -Math.PI / 2 }; // look toward the road (+x)
+            }
+        }
+    }
+    return { x: 2 * CELL_SIZE - half - 2, z: half + 2, yaw: -Math.PI / 2 };
+}
+
+/**
  * @param {number} x
  * @param {number} z
  * @param {number} [padding=0]
  */
 export function isBlockedByTree(x, z, padding = 0) {
-    for (let i = 0; i < treeData.length; i++) {
-        const t = treeData[i];
-        const r = (t.large ? 1.1 : 0.75) + padding;
+    for (let i = 0; i < trees.length; i++) {
+        const t = trees[i];
+        if (t.dead) continue;
+        const r = 1.1 + padding;
         const dx = x - t.x;
         const dz = z - t.z;
         if (dx * dx + dz * dz < r * r) return true;
@@ -606,17 +679,58 @@ export function updateCityLighting(nightAmount) {
     }
 }
 
-function lerpHex(a, b, t) {
-    const ar = (a >> 16) & 255;
-    const ag = (a >> 8) & 255;
-    const ab = a & 255;
-    const br = (b >> 16) & 255;
-    const bg = (b >> 8) & 255;
-    const bb = b & 255;
-    const r = Math.round(ar + (br - ar) * t);
-    const g = Math.round(ag + (bg - ag) * t);
-    const bl = Math.round(ab + (bb - ab) * t);
-    return (r << 16) | (g << 8) | bl;
+function lerpHex(hex1, hex2, t) {
+    const r1 = (hex1 >> 16) & 255;
+    const g1 = (hex1 >> 8) & 255;
+    const b1 = hex1 & 255;
+    const r2 = (hex2 >> 16) & 255;
+    const g2 = (hex2 >> 8) & 255;
+    const b2 = hex2 & 255;
+    const r = r1 + (r2 - r1) * t;
+    const g = g1 + (g2 - g1) * t;
+    const b = b1 + (b2 - b1) * t;
+    return (r << 16) | (g << 8) | b;
 }
 
+/**
+ * Apply damage to static props and buildings.
+ */
+export function damagePropsAtPoint(x, z, radius, damage, spawnDebrisCallback) {
+    if (!sceneRef) return;
+    const rSq = radius * radius;
+    
+    const processArray = (arr) => {
+        for (let i = 0; i < arr.length; i++) {
+            const p = arr[i];
+            if (p.dead || !p.mesh) continue;
+            const dx = p.x - x;
+            const dz = p.z - z;
+            if (dx * dx + dz * dz < rSq) {
+                p.health -= damage;
+                if (p.health <= 0) {
+                    p.dead = true;
+                    reportDestroy();
+                    sceneRef.remove(p.mesh);
+                    if (spawnDebrisCallback) spawnDebrisCallback(p.x, 0, p.z, p.type);
+                }
+            }
+        }
+    };
+    processArray(trees);
+    processArray(benches);
+    processArray(lamps);
 
+    for (let i = 0; i < buildings.length; i++) {
+        const b = buildings[i];
+        if (!b.intact || b.destroyed) continue;
+        const dx = b.x - x;
+        const dz = b.z - z;
+        if (Math.abs(dx) < b.width/2 + radius && Math.abs(dz) < b.depth/2 + radius) {
+            b.health -= damage;
+            if (b.health <= 0) {
+                destroyBuilding(sceneRef, b);
+                if (spawnDebrisCallback) spawnDebrisCallback(b.x, b.height/2, b.z, 'building', b.width, b.height, b.depth);
+            }
+        }
+    }
+}

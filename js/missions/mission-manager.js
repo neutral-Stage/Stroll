@@ -8,6 +8,7 @@ import { showMissionText, showToast } from '../hud.js';
 import { addXP, addCash } from '../player/player.js';
 import { dist2D } from '../core/physics.js';
 import { getWantedLevel } from '../systems/wanted.js';
+import { spawnEnemy } from '../enemies/enemy-manager.js';
 
 const MISSIONS = [
     {
@@ -47,6 +48,44 @@ const MISSIONS = [
             { type: 'kill_boss', count: 1, current: 0, text: 'Defeat the Boss' } // Spawns a boss when reaching the area
         ],
         reward: { xp: 1000, cash: 5000 }
+    },
+    {
+        id: 'mission_5',
+        title: 'Rooftop Loot Run',
+        description: 'Steal cash from the gang hideouts on the rooftops.',
+        objectives: [
+            { type: 'goto', x: -50, z: -50, radius: 15, text: 'Reach the first rooftop hideout' },
+            { type: 'goto', x: 150, z: 200, radius: 15, text: 'Reach the second rooftop hideout' }
+        ],
+        reward: { xp: 500, cash: 5000 }
+    },
+    {
+        id: 'mission_6',
+        title: 'Survive the Horde',
+        description: 'A massive wave of enemies is approaching. Survive!',
+        objectives: [
+            { type: 'kill', count: 20, current: 0, text: 'Defeat the incoming horde' }
+        ],
+        reward: { xp: 1000, cash: 2000 }
+    },
+    {
+        id: 'mission_7',
+        title: 'UFO Takedown',
+        description: 'A mysterious saucer is hovering over the city. Destroy it!',
+        objectives: [
+            { type: 'goto', x: 0, z: 0, radius: 30, text: 'Go to the city center' },
+            { type: 'kill_ufo', count: 1, current: 0, text: 'Destroy the UFO' }
+        ],
+        reward: { xp: 2000, cash: 10000 }
+    },
+    {
+        id: 'mission_8',
+        title: 'Rampage',
+        description: 'Cause maximum destruction in a limited time!',
+        objectives: [
+            { type: 'destroy', count: 15, current: 0, text: 'Destroy 15 city structures or cars', timer: 60 }
+        ],
+        reward: { xp: 1500, cash: 5000 }
     }
 ];
 
@@ -54,6 +93,7 @@ let currentMissionIndex = -1;
 let currentObjectiveIndex = 0;
 let isMissionActive = false;
 let missionCooldown = 5; // Start first mission after 5 seconds
+let objectiveTimer = 0;
 
 /**
  * Start a specific mission by index
@@ -74,6 +114,12 @@ export function startMission(index) {
     // Reset objective progress
     for (const obj of m.objectives) {
         if (typeof obj.current !== 'undefined') obj.current = 0;
+    }
+    
+    if (typeof m.objectives[currentObjectiveIndex].timer !== 'undefined') {
+        objectiveTimer = m.objectives[currentObjectiveIndex].timer;
+    } else {
+        objectiveTimer = 0;
     }
     
     showToast('MISSION STARTED', m.title, 'mission');
@@ -104,6 +150,41 @@ export function reportKill(isBoss = false) {
 }
 
 /**
+ * Notify mission system that an object was destroyed
+ */
+export function reportDestroy() {
+    if (!isMissionActive) return;
+    
+    const m = MISSIONS[currentMissionIndex];
+    const obj = m.objectives[currentObjectiveIndex];
+    
+    if (obj.type === 'destroy') {
+        obj.current++;
+        showMissionText(`Destroyed ${obj.current} / ${obj.count}`, 3);
+        if (obj.current >= obj.count) {
+            completeObjective();
+        }
+    }
+}
+
+/**
+ * Notify mission system that the UFO was destroyed
+ */
+export function reportUFOKill() {
+    if (!isMissionActive) return;
+    
+    const m = MISSIONS[currentMissionIndex];
+    const obj = m.objectives[currentObjectiveIndex];
+    
+    if (obj.type === 'kill_ufo') {
+        obj.current++;
+        if (obj.current >= obj.count) {
+            completeObjective();
+        }
+    }
+}
+
+/**
  * Complete the current objective and advance
  */
 function completeObjective() {
@@ -120,13 +201,21 @@ function completeObjective() {
     } else {
         // Next objective
         const nextObj = m.objectives[currentObjectiveIndex];
+        
+        if (typeof nextObj.timer !== 'undefined') {
+            objectiveTimer = nextObj.timer;
+        } else {
+            objectiveTimer = 0;
+        }
+        
         showToast('OBJECTIVE UPDATED', nextObj.text, 'mission');
         showMissionText(nextObj.text, 5);
         
         // Trigger specific events based on new objective
         if (nextObj.type === 'kill_boss') {
-            const { spawnEnemy } = require('../enemies/enemy-manager.js');
-            spawnEnemy('boss', 100, 100);
+            spawnEnemy('boss_crime_lord', 100, 100);
+        } else if (nextObj.type === 'kill_ufo') {
+            spawnEnemy('ufo', 0, 0); // Spawns UFO at city center
         }
     }
 }
@@ -147,6 +236,17 @@ export function updateMissions(delta, playerX, playerZ) {
     
     const m = MISSIONS[currentMissionIndex];
     const obj = m.objectives[currentObjectiveIndex];
+    
+    if (objectiveTimer > 0) {
+        objectiveTimer -= delta;
+        if (objectiveTimer <= 0) {
+            // Failed mission!
+            showToast('MISSION FAILED', 'Time ran out!', 'mission');
+            isMissionActive = false;
+            missionCooldown = 5;
+            return;
+        }
+    }
     
     if (obj.type === 'goto') {
         if (dist2D(playerX, playerZ, obj.x, obj.z) < obj.radius) {
@@ -185,4 +285,30 @@ export function getActiveMissionText() {
     if (!isMissionActive) return null;
     const m = MISSIONS[currentMissionIndex];
     return m.objectives[currentObjectiveIndex].text;
+}
+
+/**
+ * Get current mission state for HUD rendering
+ */
+export function getMissionState() {
+    if (!isMissionActive) return null;
+    const m = MISSIONS[currentMissionIndex];
+    const obj = m.objectives[currentObjectiveIndex];
+    
+    let timerStr = null;
+    if (objectiveTimer > 0) {
+        timerStr = objectiveTimer;
+    }
+    
+    let text = obj.text;
+    if (obj.type === 'kill' || obj.type === 'kill_boss' || obj.type === 'destroy' || obj.type === 'kill_ufo') {
+        text += ` (${obj.current || 0}/${obj.count})`;
+    }
+
+    return {
+        isActive: isMissionActive,
+        title: m.title,
+        text: text,
+        timer: timerStr
+    };
 }

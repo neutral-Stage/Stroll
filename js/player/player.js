@@ -204,6 +204,7 @@ export function getPlayerStats() {
         armor, maxArmor: currentMaxArmor,
         stamina, maxStamina: currentMaxStamina,
         cash, xp, level, dead, kills,
+        xpForPrev: XP_PER_LEVEL[level - 1] || 0,
         xpForNext: XP_PER_LEVEL[level] || Infinity,
         canSprint: stamina > 5,
     };

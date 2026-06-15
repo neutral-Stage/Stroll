@@ -15,7 +15,7 @@ import { createExplosion } from '../destruction/explosions.js';
 let sceneRef = null;
 let cameraRef = null;
 
-const activeVehicles = [];
+export const activeVehicles = [];
 let drivingVehicle = null;
 
 const keys = { w: false, a: false, s: false, d: false };
@@ -196,6 +196,16 @@ export function updateVehicles(delta, elapsed) {
             applyVehicleVelocity(v, delta);
         }
         
+        // Gravity for vehicles in the air
+        if (v.mesh.position.y > 0 || v.vy) {
+            v.vy = (v.vy || 0) - 20 * delta;
+            v.mesh.position.y += v.vy * delta;
+            if (v.mesh.position.y <= 0) {
+                v.mesh.position.y = 0;
+                v.vy = 0;
+            }
+        }
+
         // Wheel rotation
         if (Math.abs(v.speed) > 0.1) {
             for (const wheel of v.wheels) {

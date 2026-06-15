@@ -10,6 +10,7 @@ let canvas2d = null;
 let ctx2d = null;
 let isPaused = false;
 let pauseStatsProvider = null;
+let lastCash = 0;
 
 // ── DOM elements (cached) ────────────────────────────────────
 const el = {};
@@ -39,6 +40,17 @@ export function initHUD() {
     el.compass = document.getElementById('compass-heading');
     el.killFeed = document.getElementById('kill-feed');
     el.missionText = document.getElementById('mission-text');
+    
+    el.missionInfo = document.getElementById('mission-info');
+    el.missionInfoTitle = document.getElementById('mission-info-title');
+    el.missionInfoObjective = document.getElementById('mission-info-objective');
+    el.missionInfoTimer = document.getElementById('mission-info-timer');
+    
+    // Wave UI
+    el.waveUi = document.getElementById('wave-ui');
+    el.waveUiTitle = document.getElementById('wave-ui-title');
+    el.waveUiSubtext = document.getElementById('wave-ui-subtext');
+    el.waveTransition = document.getElementById('wave-transition');
 
     // Minimap canvas
     canvas2d = document.getElementById('minimap-canvas');
@@ -87,7 +99,16 @@ export function updateHUD(stats, weaponInfo, wantedLevel, camera, playerPos, ene
     }
 
     // Cash
-    if (el.cash) el.cash.textContent = `$${stats.cash.toLocaleString()}`;
+    if (el.cash) {
+        if (stats.cash !== lastCash) {
+            el.cash.textContent = `$${stats.cash.toLocaleString()}`;
+            if (stats.cash > lastCash) {
+                el.cash.classList.add('pulse-cash');
+                setTimeout(() => el.cash.classList.remove('pulse-cash'), 200);
+            }
+            lastCash = stats.cash;
+        }
+    }
 
     // Level & XP
     if (el.level) el.level.textContent = `LVL ${stats.level}`;
@@ -97,9 +118,12 @@ export function updateHUD(stats, weaponInfo, wantedLevel, camera, playerPos, ene
     }
 
     // Weapon info
-    if (el.weaponName) el.weaponName.textContent = weaponInfo.name || 'Fists';
-    if (el.ammoClip) el.ammoClip.textContent = weaponInfo.ammoClip === Infinity ? '∞' : weaponInfo.ammoClip;
-    if (el.ammoReserve) el.ammoReserve.textContent = weaponInfo.ammoReserve === Infinity ? '' : `/ ${weaponInfo.ammoReserve}`;
+    if (el.weaponName) {
+        el.weaponName.textContent = weaponInfo.name || 'Power';
+        if (weaponInfo.color) el.weaponName.style.color = weaponInfo.color;
+    }
+    if (el.ammoClip) el.ammoClip.textContent = weaponInfo.ammoClip;
+    if (el.ammoReserve) el.ammoReserve.textContent = weaponInfo.ammoReserve;
 
     // Wanted stars
     if (el.wantedStars) {
@@ -318,6 +342,33 @@ export function showMissionText(text, duration = 3) {
     }
 }
 
+/**
+ * Update the persistent mission HUD info.
+ * @param {boolean} isActive
+ * @param {string} title
+ * @param {string} objectiveText
+ * @param {number|null} timer
+ */
+export function updateMissionHUD(isActive, title, objectiveText, timer) {
+    if (!el.missionInfo) return;
+    if (!isActive) {
+        el.missionInfo.style.display = 'none';
+        return;
+    }
+    el.missionInfo.style.display = 'block';
+    if (el.missionInfoTitle) el.missionInfoTitle.textContent = title || 'MISSION';
+    if (el.missionInfoObjective) el.missionInfoObjective.textContent = objectiveText || '';
+    
+    if (el.missionInfoTimer && timer !== undefined && timer !== null) {
+        el.missionInfoTimer.classList.add('active');
+        const mins = Math.floor(timer / 60);
+        const secs = Math.floor(timer % 60);
+        el.missionInfoTimer.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else if (el.missionInfoTimer) {
+        el.missionInfoTimer.classList.remove('active');
+    }
+}
+
 /** Toggle pause menu */
 export function togglePause() {
     isPaused = !isPaused;
@@ -349,4 +400,31 @@ export function isJournalOpen() { return false; }
 
 /** Toggle journal (legacy compat — removed in action game) */
 export function toggleJournal() { return false; }
+
+// ─── WAVE UI ──────────────────────────────────────────────────
+
+export function showWaveUI(level) {
+    if (!el.waveUi) return;
+    el.waveUiTitle.textContent = `WAVE ${level}`;
+    el.waveUi.classList.add('visible');
+}
+
+export function updateWaveUI(remaining) {
+    if (!el.waveUi) return;
+    el.waveUiSubtext.textContent = `ENEMIES REMAINING: ${remaining}`;
+}
+
+export function animateWaveComplete() {
+    if (!el.waveTransition) return;
+    
+    // Hide standard wave UI momentarily
+    if (el.waveUi) {
+        el.waveUi.classList.remove('visible');
+    }
+    
+    el.waveTransition.classList.remove('animate');
+    // Trigger reflow to restart animation
+    void el.waveTransition.offsetWidth;
+    el.waveTransition.classList.add('animate');
+}
 

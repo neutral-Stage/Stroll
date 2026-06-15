@@ -46,22 +46,31 @@ let skyPaintCooldown = 0;
 /** @type {{x:number, z:number}|null} */
 let shadowFocus = null;
 
+let flashTimer = 0;
+let flashIntensity = 0;
+
+export function triggerSkyFlash(intensity = 4.0, duration = 0.3) {
+    flashIntensity = intensity;
+    flashTimer = duration;
+}
+
 /**
  * Set up all scene lighting for golden-hour atmosphere.
  * @param {THREE.Scene} scene
  */
 export function setupLighting(scene) {
-    // Warm ambient light (slightly brighter for realism)
-    ambient = new THREE.AmbientLight(0xFFE0B2, 0.5);
+    // Warm ambient light (pinkish/orange tint)
+    ambient = new THREE.AmbientLight(0xFFB6C1, 0.6); // Pinkish
     scene.add(ambient);
 
-    // Hemisphere light for sky/ground color blending (enhanced)
-    hemi = new THREE.HemisphereLight(0xFDB813, 0x8B6914, 0.4);
+    // Hemisphere light for sky/ground color blending (softer, less neon)
+    hemi = new THREE.HemisphereLight(0xE8A07A, 0x4A4A52, 0.55); // Warm sky, cool ground
     scene.add(hemi);
 
-    // Main directional light (sun at golden hour — low angle, enhanced shadows)
-    sun = new THREE.DirectionalLight(0xFFA726, 1.4);
-    sun.position.set(-80, 40, -60);
+    // Main directional light (sun at sunset — strong golden/orange).
+    // Brighter than Lambert needed: PBR materials respond to ~2x the intensity.
+    sun = new THREE.DirectionalLight(0xFFE3B0, 2.4); // Warm gold
+    sun.position.set(-80, 20, -80); // Lower angle for longer shadows
     sun.castShadow = true;
     const shadowSize = getQuality().shadowMapSize;
     sun.shadow.mapSize.width = shadowSize;
@@ -78,15 +87,17 @@ export function setupLighting(scene) {
     scene.add(sun);
     scene.add(sun.target);
 
-    fillLight = new THREE.DirectionalLight(0xFF8A65, 0.4);
+    // Fill light (Purple/lavender)
+    fillLight = new THREE.DirectionalLight(0xDDA0DD, 0.5);
     fillLight.position.set(60, 25, 40);
     scene.add(fillLight);
 
-    rimLight = new THREE.DirectionalLight(0xFFCC80, 0.2);
+    // Rim light (Deep pink)
+    rimLight = new THREE.DirectionalLight(0xFF1493, 0.4);
     rimLight.position.set(0, 50, 80);
     scene.add(rimLight);
 
-    warmGlow = new THREE.PointLight(0xFFCC80, 0.35, 60);
+    warmGlow = new THREE.PointLight(0xFF8C00, 0.4, 60);
     warmGlow.position.set(0, 10, 0);
     scene.add(warmGlow);
 }
@@ -97,7 +108,7 @@ export function setupLighting(scene) {
  */
 export function setupFog(scene) {
     // Atmospheric fog for depth and realism
-    scene.fog = new THREE.FogExp2(FOG_COLOR, FOG_DENSITY * 0.8); // Slightly less dense for better visibility
+    scene.fog = new THREE.FogExp2(FOG_COLOR, FOG_DENSITY * 0.55); // Thinner haze so facades read clearly
 }
 
 /**
@@ -145,15 +156,14 @@ function paintSkyGradient(phase) {
 
     // More realistic sky gradient with sun glow
     const goldenStops = [
-        [0, '#0f1638'],   // Deep blue zenith
-        [0.15, '#1a2555'], // Upper sky
-        [0.3, '#c44e10'],  // Warm orange band
-        [0.45, '#e87520'], // Sun glow
-        [0.55, '#fb9b34'], // Bright horizon
-        [0.65, '#fdb849'], // Golden
-        [0.75, '#ffd070'], // Light gold
+        [0, '#190a36'],    // Deep purple zenith
+        [0.2, '#5b2c6f'],  // Magenta/purple
+        [0.4, '#c8385a'],  // Hot pink
+        [0.55, '#f3684a'], // Neon orange
+        [0.65, '#f9a826'], // Golden
+        [0.75, '#ffd270'], // Light gold
         [0.85, '#ffe4a0'], // Pale gold
-        [1.0, '#fff0d0']   // Horizon haze
+        [1.0, '#ffffff']   // Horizon haze
     ];
     const nightStops = [
         [0, '#050510'],   // Deep space
@@ -219,6 +229,12 @@ function lerpColor(a, b, t) {
  * @param {{x:number, z:number}} [playerPos]
  */
 export function updateDayNight(delta, scene, playerPos) {
+    let flashAdd = 0;
+    if (flashTimer > 0) {
+        flashTimer -= delta;
+        flashAdd = (Math.max(0, flashTimer) / 0.3) * flashIntensity;
+    }
+
     if (!DAY_NIGHT_ENABLED) return;
 
     cycleTime = (cycleTime + delta / DAY_NIGHT_CYCLE_DURATION) % 1;
@@ -230,7 +246,7 @@ export function updateDayNight(delta, scene, playerPos) {
     }
 
     if (sun) {
-        sun.intensity = 1.2 * (1 - nightAmount * 0.8);
+        sun.intensity = 2.4 * (1 - nightAmount * 0.78);
         const angle = phase * Math.PI * 2;
         sun.position.set(-80 * Math.cos(angle), 30 * (1 - nightAmount * 0.5), -60 * Math.sin(angle));
 
@@ -248,12 +264,12 @@ export function updateDayNight(delta, scene, playerPos) {
     }
 
     if (ambient) {
-        ambient.intensity = 0.4 * (1 - nightAmount * 0.6);
+        ambient.intensity = (0.72 * (1 - nightAmount * 0.5)) + flashAdd;
         ambient.color.setHex(lerpColorNum(0xFFE0B2, 0x8899aa, nightAmount * 0.5));
     }
 
     if (hemi) {
-        hemi.intensity = 0.4 * (1 - nightAmount * 0.5);
+        hemi.intensity = (0.68 * (1 - nightAmount * 0.4)) + (flashAdd * 0.5);
     }
 
     if (fillLight) {
@@ -268,7 +284,7 @@ export function updateDayNight(delta, scene, playerPos) {
     }
 
     if (scene.fog) {
-        scene.fog.density = FOG_DENSITY * (0.85 + nightAmount * 0.55);
+        scene.fog.density = FOG_DENSITY * (0.55 + nightAmount * 0.5);
         const fogDay = FOG_COLOR;
         const fogNight = 0x2a3340;
         scene.fog.color.setHex(lerpColorNum(fogDay, fogNight, nightAmount * 0.65));
@@ -375,10 +391,12 @@ export function setupGround(scene) {
 
     // Ocean water
     const oceanGeo = new THREE.PlaneGeometry(2000, 2000, 16, 16);
-    const oceanMat = new THREE.MeshLambertMaterial({
-        color: 0x0044aa,
+    const oceanMat = new THREE.MeshStandardMaterial({
+        color: 0x0a3a6e,
+        roughness: 0.12,
+        metalness: 0.2,
         transparent: true,
-        opacity: 0.8
+        opacity: 0.85
     });
     const ocean = new THREE.Mesh(oceanGeo, oceanMat);
     ocean.rotation.x = -Math.PI / 2;
